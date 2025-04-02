@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "tailwindcss";
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+/* Custom divider with text */
+.text-center.my-4 {
+  position: relative;
+  text-align: center;
+}
+
+.text-center.my-4::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 1px solid #e5e7eb;
+  z-index: -1;
+}
+
+.text-center.my-4 span {
+  display: inline-block;
+  padding: 0 0.5rem;
+}
