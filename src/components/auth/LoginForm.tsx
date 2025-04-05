@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Input from '../common/Input';
 import Button from '../common/Button';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LoginForm: React.FC = () => {
+  const { login, loginWithGoogle } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -14,7 +18,10 @@ const LoginForm: React.FC = () => {
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
+    general?: string;
   }>({});
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -32,13 +39,14 @@ const LoginForm: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Simple validation
     const newErrors: {
       email?: string;
       password?: string;
+      general?: string;
     } = {};
     
     if (!formData.email) {
@@ -56,14 +64,73 @@ const LoginForm: React.FC = () => {
       return;
     }
     
-    // Handle login logic here
-    console.log('Login form submitted:', formData);
-    // You would typically call an API or authentication service here
+    // Handle login logic
+    setIsSubmitting(true);
+    try {
+      await login(formData.email, formData.password);
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      // Handle specific Firebase error codes
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/invalid-email':
+            setErrors({ email: 'Invalid email format' });
+            break;
+          case 'auth/user-disabled':
+            setErrors({ general: 'This account has been disabled' });
+            break;
+          case 'auth/user-not-found':
+            setErrors({ email: 'No account found with this email' });
+            break;
+          case 'auth/wrong-password':
+            setErrors({ password: 'Incorrect password' });
+            break;
+          case 'auth/too-many-requests':
+            setErrors({ general: 'Too many failed login attempts. Please try again later.' });
+            break;
+          default:
+            setErrors({ general: error.message || 'Failed to login. Please try again.' });
+        }
+      } else {
+        setErrors({
+          general: error.message || 'Failed to login. Please check your credentials and try again.'
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleGoogleSignIn = () => {
-    // Handle Google sign-in logic
-    console.log('Google sign-in clicked');
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
+    try {
+      await loginWithGoogle();
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      setErrors({
+        general: error.message || 'Failed to login with Google. Please try again.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  const handleDemoLogin = async () => {
+    setIsSubmitting(true);
+    try {
+      await login('demo@example.com', 'password123');
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Demo login error:', error);
+      setErrors({
+        general: 'Failed to login with demo account. Please try again.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -121,8 +188,18 @@ const LoginForm: React.FC = () => {
               </Link>
             </div>
             
-            <Button type="submit" fullWidth>
-              Login
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-4">
+                {errors.general}
+              </div>
+            )}
+            
+            <Button 
+              type="submit" 
+              fullWidth
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Logging in...' : 'Login'}
             </Button>
             
             <div className="text-center my-4">
@@ -134,6 +211,7 @@ const LoginForm: React.FC = () => {
               variant="google" 
               fullWidth
               onClick={handleGoogleSignIn}
+              disabled={isSubmitting}
             >
               <img 
                 src="/icons/google.svg" 
@@ -143,8 +221,17 @@ const LoginForm: React.FC = () => {
                   e.currentTarget.src = 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg';
                 }}
               />
-              Sign up with Google
+              Sign in with Google
             </Button>
+
+            <div className="text-center mt-4">
+              <p className="text-gray-600">
+                Dont't have an account?{' '}
+                <Link href="/auth/register" className="text-black font-medium hover:underline">
+                  Register
+                </Link>
+              </p>
+            </div>
           </form>
         </div>
       </div>

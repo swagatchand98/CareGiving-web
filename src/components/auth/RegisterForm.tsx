@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Input from '../common/Input';
 import Button from '../common/Button';
+import { useAuth } from '@/contexts/AuthContext';
 
 const RegisterForm: React.FC = () => {
+  const { register, loginWithGoogle } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,7 +22,10 @@ const RegisterForm: React.FC = () => {
     email?: string;
     password?: string;
     confirmPassword?: string;
+    general?: string;
   }>({});
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -36,7 +43,7 @@ const RegisterForm: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Simple validation
@@ -45,6 +52,7 @@ const RegisterForm: React.FC = () => {
       email?: string;
       password?: string;
       confirmPassword?: string;
+      general?: string;
     } = {};
     
     if (!formData.name) {
@@ -74,14 +82,55 @@ const RegisterForm: React.FC = () => {
       return;
     }
     
-    // Handle registration logic here
-    console.log('Registration form submitted:', formData);
-    // You would typically call an API or authentication service here
+    // Handle registration logic
+    setIsSubmitting(true);
+    try {
+      await register(formData.name, formData.email, formData.password);
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      
+      // Handle specific Firebase error codes
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            setErrors({ email: 'Email is already in use' });
+            break;
+          case 'auth/invalid-email':
+            setErrors({ email: 'Invalid email format' });
+            break;
+          case 'auth/weak-password':
+            setErrors({ password: 'Password is too weak' });
+            break;
+          case 'auth/operation-not-allowed':
+            setErrors({ general: 'Registration is currently disabled' });
+            break;
+          default:
+            setErrors({ general: error.message || 'Failed to register. Please try again.' });
+        }
+      } else {
+        setErrors({
+          general: error.message || 'Failed to register. Please try again later.'
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleGoogleSignUp = () => {
-    // Handle Google sign-up logic
-    console.log('Google sign-up clicked');
+  const handleGoogleSignUp = async () => {
+    setIsSubmitting(true);
+    try {
+      await loginWithGoogle();
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Google sign-up error:', error);
+      setErrors({
+        general: error.message || 'Failed to register with Google. Please try again.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -155,8 +204,18 @@ const RegisterForm: React.FC = () => {
               required
             />
             
-            <Button type="submit" fullWidth>
-              Create Account
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-4">
+                {errors.general}
+              </div>
+            )}
+            
+            <Button 
+              type="submit" 
+              fullWidth
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Creating Account...' : 'Create Account'}
             </Button>
             
             <div className="text-center my-4">
@@ -168,6 +227,7 @@ const RegisterForm: React.FC = () => {
               variant="google" 
               fullWidth
               onClick={handleGoogleSignUp}
+              disabled={isSubmitting}
             >
               <img 
                 src="/icons/google.svg" 
