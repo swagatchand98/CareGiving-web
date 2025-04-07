@@ -136,9 +136,22 @@ const LoginForm: React.FC = () => {
   return (
     <div className="flex h-screen">
       {/* Left side - Background image with text */}
-      <div className="hidden md:flex md:w-1/2 bg-cover bg-center relative" 
-           style={{ backgroundImage: "url('/images/placeholders/caregiver-baby.jpg.svg')" }}>
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-12">
+      <div className="hidden md:flex md:w-1/2 bg-cover bg-center relative">
+      <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute top-0 left-0 w-full h-full object-cover z-0 rounded-r-2xl"
+          onLoadedData={() => console.log("Video loaded successfully")}
+          onError={(e) => console.error("Video error:", e)}
+        >
+          <source src="/videos/loginVdo.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <div className="absolute inset-0 bg-black/80 bg-opacity-40 flex flex-col justify-center items-center text-white p-12 z-10 rounded-r-2xl"
+        style={{boxShadow: "30px 0px 80px -10px rgba(0, 0, 0, 0.8)"}}
+        >
           <div className="absolute top-8 left-8">
             <div className="text-2xl font-bold">Logo</div>
           </div>

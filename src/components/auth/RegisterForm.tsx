@@ -11,14 +11,16 @@ const RegisterForm: React.FC = () => {
   const { register, loginWithGoogle } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
   
   const [errors, setErrors] = useState<{
-    name?: string;
+    firstName?: string;
+    lastName?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
@@ -48,15 +50,20 @@ const RegisterForm: React.FC = () => {
     
     // Simple validation
     const newErrors: {
-      name?: string;
+      firstName?: string;
+      lastName?: string;
       email?: string;
       password?: string;
       confirmPassword?: string;
       general?: string;
     } = {};
     
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
+    if (!formData.firstName) {
+      newErrors.firstName = 'First name is required';
+    }
+    
+    if (!formData.lastName) {
+      newErrors.lastName = 'Last name is required';
     }
     
     if (!formData.email) {
@@ -85,7 +92,9 @@ const RegisterForm: React.FC = () => {
     // Handle registration logic
     setIsSubmitting(true);
     try {
-      await register(formData.name, formData.email, formData.password);
+      // Combine first and last name for the register function
+      const fullName = `${formData.firstName} ${formData.lastName}`;
+      await register(fullName, formData.email, formData.password);
       router.push('/dashboard');
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -136,9 +145,22 @@ const RegisterForm: React.FC = () => {
   return (
     <div className="flex h-screen">
       {/* Left side - Background image with text */}
-      <div className="hidden md:flex md:w-1/2 bg-cover bg-center relative" 
-           style={{ backgroundImage: "url('/images/placeholders/caregiver.jpg.svg')" }}>
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-12">
+      <div className="hidden md:flex md:w-1/2 bg-cover bg-center relative">
+       <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute top-0 left-0 w-full h-full object-cover z-0 rounded-r-2xl"
+          onLoadedData={() => console.log("Video loaded successfully")}
+          onError={(e) => console.error("Video error:", e)}
+        >
+          <source src="/videos/signupVdo.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <div className="absolute inset-0 bg-black/80 bg-opacity-40 flex flex-col justify-center items-center text-white p-12 z-10 rounded-r-2xl"
+        style={{boxShadow: "30px 0px 80px -10px rgba(0, 0, 0, 0.8)"}}
+        >
           <div className="absolute top-8 left-8">
             <div className="text-2xl font-bold">Logo</div>
           </div>
@@ -156,20 +178,33 @@ const RegisterForm: React.FC = () => {
         <div className="w-full max-w-md">
           <div className="mb-8">
             <h2 className="text-3xl font-bold mb-2">Sign Up</h2>
-            <p className="text-gray-600">Fill the field below to continue.</p>
+            <p className="text-gray-600">Fill the fields below to continue.</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Name"
-              name="name"
-              type="text"
-              placeholder="name example"
-              value={formData.name}
-              onChange={handleChange}
-              error={errors.name}
-              required
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="First Name"
+                name="firstName"
+                type="text"
+                placeholder="John"
+                value={formData.firstName}
+                onChange={handleChange}
+                error={errors.firstName}
+                required
+              />
+              
+              <Input
+                label="Last Name"
+                name="lastName"
+                type="text"
+                placeholder="Doe"
+                value={formData.lastName}
+                onChange={handleChange}
+                error={errors.lastName}
+                required
+              />
+            </div>
             
             <Input
               label="Email"
