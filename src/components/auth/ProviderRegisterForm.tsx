@@ -6,26 +6,25 @@ import Link from 'next/link';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import { useAuth } from '@/contexts/AuthContext';
+import { ProviderRegistrationData } from '@/services/authService';
 
 const ProviderRegisterForm: React.FC = () => {
-  const { register } = useAuth();
+  const { registerProvider, registerProviderWithGoogle } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
-    phone: '',
-    serviceType: '',
-    experience: '',
+    phoneNumber: '',
     password: '',
     confirmPassword: '',
   });
   
   const [errors, setErrors] = useState<{
-    name?: string;
+    firstName?: string;
+    lastName?: string;
     email?: string;
-    phone?: string;
-    serviceType?: string;
-    experience?: string;
+    phoneNumber?: string;
     password?: string;
     confirmPassword?: string;
     general?: string;
@@ -33,7 +32,7 @@ const ProviderRegisterForm: React.FC = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -54,18 +53,21 @@ const ProviderRegisterForm: React.FC = () => {
     
     // Simple validation
     const newErrors: {
-      name?: string;
+      firstName?: string;
+      lastName?: string;
       email?: string;
-      phone?: string;
-      serviceType?: string;
-      experience?: string;
+      phoneNumber?: string;
       password?: string;
       confirmPassword?: string;
       general?: string;
     } = {};
     
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
+    if (!formData.firstName) {
+      newErrors.firstName = 'First name is required';
+    }
+    
+    if (!formData.lastName) {
+      newErrors.lastName = 'Last name is required';
     }
     
     if (!formData.email) {
@@ -74,16 +76,8 @@ const ProviderRegisterForm: React.FC = () => {
       newErrors.email = 'Please enter a valid email';
     }
     
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    }
-    
-    if (!formData.serviceType) {
-      newErrors.serviceType = 'Service type is required';
-    }
-    
-    if (!formData.experience) {
-      newErrors.experience = 'Experience is required';
+    if (!formData.phoneNumber) {
+      newErrors.phoneNumber = 'Phone number is required';
     }
     
     if (!formData.password) {
@@ -106,22 +100,60 @@ const ProviderRegisterForm: React.FC = () => {
     // Handle registration logic
     setIsSubmitting(true);
     try {
-      // In a real app, we would register as a provider with additional fields
-      await register(formData.name, formData.email, formData.password);
-      router.push('/dashboard');
-    } catch (error) {
-      console.error('Registration error:', error);
+      // Create provider data object
+      const providerData: ProviderRegistrationData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phoneNumber: formData.phoneNumber
+      };
+      
+      // Register as a provider
+      await registerProvider(formData.email, formData.password, providerData);
+      
+      // Redirect to provider dashboard
+      router.push('/dashboard/provider');
+    } catch (error: any) {
+      console.error('Provider registration error:', error);
       setErrors({
-        general: 'Failed to register. Please try again later.'
+        general: error.message || 'Failed to register as a provider. Please try again later.'
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleGoogleSignUp = () => {
-    // Handle Google sign-up logic
-    console.log('Google sign-up clicked');
+  const handleGoogleSignUp = async () => {
+    setIsSubmitting(true);
+    try {
+      // Create provider data object
+      const providerData: ProviderRegistrationData = {
+        firstName: formData.firstName || '',
+        lastName: formData.lastName || '',
+        phoneNumber: formData.phoneNumber || ''
+      };
+      
+      // Check if required fields are filled
+      if (!providerData.phoneNumber) {
+        setErrors({
+          general: 'Please provide your phone number before signing up with Google'
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Register as a provider with Google
+      await registerProviderWithGoogle(providerData);
+      
+      // Redirect to provider dashboard
+      router.push('/dashboard/provider');
+    } catch (error: any) {
+      console.error('Provider Google registration error:', error);
+      setErrors({
+        general: error.message || 'Failed to register as a provider with Google. Please try again later.'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -148,19 +180,33 @@ const ProviderRegisterForm: React.FC = () => {
           <div className="mb-8">
             <h2 className="text-3xl font-bold mb-2">Provider Registration</h2>
             <p className="text-gray-600">Fill the fields below to join as a service provider.</p>
+            <p className="text-gray-500 mt-2 text-sm">After registration, you'll need to complete your profile with additional information.</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Full Name"
-              name="name"
-              type="text"
-              placeholder="John Doe"
-              value={formData.name}
-              onChange={handleChange}
-              error={errors.name}
-              required
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="First Name"
+                name="firstName"
+                type="text"
+                placeholder="John"
+                value={formData.firstName}
+                onChange={handleChange}
+                error={errors.firstName}
+                required
+              />
+              
+              <Input
+                label="Last Name"
+                name="lastName"
+                type="text"
+                placeholder="Doe"
+                value={formData.lastName}
+                onChange={handleChange}
+                error={errors.lastName}
+                required
+              />
+            </div>
             
             <Input
               label="Email"
@@ -175,64 +221,14 @@ const ProviderRegisterForm: React.FC = () => {
             
             <Input
               label="Phone Number"
-              name="phone"
+              name="phoneNumber"
               type="tel"
               placeholder="(123) 456-7890"
-              value={formData.phone}
+              value={formData.phoneNumber}
               onChange={handleChange}
-              error={errors.phone}
+              error={errors.phoneNumber}
               required
             />
-            
-            <div className="mb-4">
-              <label 
-                htmlFor="serviceType" 
-                className="block text-sm font-medium mb-1"
-              >
-                Service Type<span className="text-red-500 ml-1">*</span>
-              </label>
-              <select
-                id="serviceType"
-                name="serviceType"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
-                value={formData.serviceType}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select a service type</option>
-                <option value="elder-care">Elder Care</option>
-                <option value="child-care">Child Care</option>
-                <option value="special-needs">Special Needs Care</option>
-                <option value="medical">Medical Care</option>
-                <option value="other">Other</option>
-              </select>
-              {errors.serviceType && <p className="mt-1 text-xs text-red-500">{errors.serviceType}</p>}
-            </div>
-            
-            <div className="mb-4">
-              <label 
-                htmlFor="experience" 
-                className="block text-sm font-medium mb-1"
-              >
-                Years of Experience<span className="text-red-500 ml-1">*</span>
-              </label>
-              <select
-                id="experience"
-                name="experience"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
-                value={formData.experience}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select years of experience</option>
-                <option value="0-1">Less than 1 year</option>
-                <option value="1-3">1-3 years</option>
-                <option value="3-5">3-5 years</option>
-                <option value="5-10">5-10 years</option>
-                <option value="10+">10+ years</option>
-              </select>
-              {errors.experience && <p className="mt-1 text-xs text-red-500">{errors.experience}</p>}
-            </div>
             
             <Input
               label="Password"
@@ -297,6 +293,15 @@ const ProviderRegisterForm: React.FC = () => {
                 Already have an account?{' '}
                 <Link href="/auth/login" className="text-black font-medium hover:underline">
                   Login
+                </Link>
+              </p>
+            </div>
+            
+            <div className="text-center mt-2">
+              <p className="text-gray-600">
+                Looking to register as a client?{' '}
+                <Link href="/auth/register" className="text-black font-medium hover:underline">
+                  Register as Client
                 </Link>
               </p>
             </div>

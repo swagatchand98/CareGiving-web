@@ -239,9 +239,18 @@ const LoginForm: React.FC = () => {
 
             <div className="text-center mt-4">
               <p className="text-gray-600">
-                Dont't have an account?{' '}
+                Don't have an account?{' '}
                 <Link href="/auth/register" className="text-black font-medium hover:underline">
                   Register
+                </Link>
+              </p>
+            </div>
+            
+            <div className="text-center mt-2">
+              <p className="text-gray-600">
+                Want to provide services?{' '}
+                <Link href="/auth/register/provider" className="text-black font-medium hover:underline">
+                  Register as Provider
                 </Link>
               </p>
             </div>
