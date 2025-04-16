@@ -283,6 +283,15 @@ const RegisterForm: React.FC = () => {
                 </Link>
               </p>
             </div>
+            
+            <div className="text-center mt-2">
+              <p className="text-gray-600">
+                Want to provide services?{' '}
+                <Link href="/auth/register/provider" className="text-black font-medium hover:underline">
+                  Register as Provider
+                </Link>
+              </p>
+            </div>
           </form>
         </div>
       </div>
