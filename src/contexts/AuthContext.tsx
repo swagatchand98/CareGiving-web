@@ -6,9 +6,12 @@ import { auth } from '@/config/firebase';
 import api from '@/lib/axios';
 import {
   UserData,
+  ProviderRegistrationData,
   loginWithEmailPassword,
   loginWithGoogle,
   registerWithEmailPassword,
+  registerAsProvider,
+  registerAsProviderWithGoogle,
   logout as logoutService,
   getUserProfile,
   updateUserProfile,
@@ -22,9 +25,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, password: string) => Promise<UserData>;
+  loginWithGoogle: () => Promise<UserData>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  registerProvider: (
+    email: string, 
+    password: string, 
+    providerData: ProviderRegistrationData
+  ) => Promise<void>;
+  registerProviderWithGoogle: (providerData: ProviderRegistrationData) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   verifyEmail: () => Promise<void>;
@@ -94,13 +103,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<UserData> => {
     setIsLoading(true);
     try {
       const userData = await loginWithEmailPassword(email, password);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       setToken(userData.token);
+      return userData;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -109,13 +119,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const loginWithGoogleHandler = async () => {
+  const loginWithGoogleHandler = async (): Promise<UserData> => {
     setIsLoading(true);
     try {
       const userData = await loginWithGoogle();
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       setToken(userData.token);
+      return userData;
     } catch (error) {
       console.error('Google login error:', error);
       throw error;
@@ -194,6 +205,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const registerProviderHandler = async (
+    email: string, 
+    password: string, 
+    providerData: ProviderRegistrationData
+  ) => {
+    setIsLoading(true);
+    try {
+      const userData = await registerAsProvider(email, password, providerData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      setToken(userData.token);
+    } catch (error) {
+      console.error('Provider registration error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const registerProviderWithGoogleHandler = async (providerData: ProviderRegistrationData) => {
+    setIsLoading(true);
+    try {
+      const userData = await registerAsProviderWithGoogle(providerData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      setToken(userData.token);
+    } catch (error) {
+      console.error('Provider Google registration error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     user,
     firebaseUser,
@@ -203,6 +248,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     loginWithGoogle: loginWithGoogleHandler,
     register,
+    registerProvider: registerProviderHandler,
+    registerProviderWithGoogle: registerProviderWithGoogleHandler,
     logout: logoutHandler,
     resetPassword: resetPasswordHandler,
     verifyEmail: verifyEmailHandler,

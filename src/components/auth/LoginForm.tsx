@@ -8,7 +8,7 @@ import Button from '../common/Button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const LoginForm: React.FC = () => {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, user } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: '',
@@ -67,8 +67,14 @@ const LoginForm: React.FC = () => {
     // Handle login logic
     setIsSubmitting(true);
     try {
-      await login(formData.email, formData.password);
-      router.push('/dashboard');
+      const userData = await login(formData.email, formData.password);
+      
+      // Redirect based on user role
+      if (userData.role === 'provider') {
+        router.push('/dashboard/provider');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       
@@ -106,8 +112,14 @@ const LoginForm: React.FC = () => {
   const handleGoogleSignIn = async () => {
     setIsSubmitting(true);
     try {
-      await loginWithGoogle();
-      router.push('/dashboard');
+      const userData = await loginWithGoogle();
+      
+      // Redirect based on user role
+      if (userData.role === 'provider') {
+        router.push('/dashboard/provider');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       setErrors({
@@ -121,8 +133,14 @@ const LoginForm: React.FC = () => {
   const handleDemoLogin = async () => {
     setIsSubmitting(true);
     try {
-      await login('demo@example.com', 'password123');
-      router.push('/dashboard');
+      const userData = await login('demo@example.com', 'password123');
+      
+      // Redirect based on user role
+      if (userData.role === 'provider') {
+        router.push('/dashboard/provider');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       console.error('Demo login error:', error);
       setErrors({
