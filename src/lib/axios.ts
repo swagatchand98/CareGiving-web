@@ -21,7 +21,7 @@ api.interceptors.request.use(
     if (userData) {
       try {
         const user = JSON.parse(userData);
-        if (user.token) {
+        if (user.token && config.headers) {
           config.headers['Authorization'] = `Bearer ${user.token}`;
         }
       } catch (error) {
@@ -67,7 +67,7 @@ api.interceptors.response.use(
             );
             
             if (response.status === 200) {
-              const userData = response.data;
+              const userData = response.data as { token: string };
               localStorage.setItem('user', JSON.stringify(userData));
               
               // Update the original request with the new token
@@ -87,7 +87,7 @@ api.interceptors.response.use(
       // If we get here, token refresh failed
       // Only redirect to login if we're in a browser environment
       if (typeof window !== 'undefined') {
-        // Clear user data
+        // Clear
         localStorage.removeItem('user');
         
         // Don't automatically redirect to login page to avoid disrupting the user experience
