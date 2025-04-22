@@ -26,6 +26,44 @@ export interface UserData {
   // Added for compatibility with existing code
   name: string;
   avatar?: string;
+  // Provider specific fields
+  phoneNumber?: string;
+  serviceType?: string;
+  experience?: string;
+  bio?: string;
+  certifications?: string[];
+  availability?: {
+    days: string[];
+    hours: string;
+  };
+}
+
+// Provider registration data interface
+export interface ProviderRegistrationData {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+}
+
+// Provider onboarding data interface
+export interface ProviderOnboardingData {
+  bio?: string;
+  serviceCategories: string[];
+  certifications?: string[];
+  yearsOfExperience: number;
+  hourlyRate: number;
+  serviceAreas: string[];
+  languagesSpoken?: string[];
+  availability?: any[];
+}
+
+// Provider address interface
+export interface ProviderAddress {
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country?: string;
 }
 
 // Helper function to get Firebase ID token
@@ -78,7 +116,8 @@ export const registerWithEmailPassword = async (
       { headers: { Authorization: `Bearer ${idToken}` } }
     );
     
-    const userData = response.data;
+    // Type assertion for the response data
+    const userData = response.data as UserData;
     
     // Add name property for compatibility with existing code
     return {
@@ -119,7 +158,8 @@ export const loginWithEmailPassword = async (
       { headers: { Authorization: `Bearer ${idToken}` } }
     );
     
-    const userData = response.data;
+    // Type assertion for the response data
+    const userData = response.data as UserData;
     
     // Add name property for compatibility with existing code
     return {
@@ -156,7 +196,8 @@ export const loginWithGoogle = async (): Promise<UserData> => {
         { headers: { Authorization: `Bearer ${idToken}` } }
       );
       
-      const userData = registerResponse.data;
+      // Type assertion for the response data
+      const userData = registerResponse.data as UserData;
       
       // Add name property for compatibility with existing code
       return {
@@ -172,7 +213,8 @@ export const loginWithGoogle = async (): Promise<UserData> => {
           { headers: { Authorization: `Bearer ${idToken}` } }
         );
         
-        const userData = loginResponse.data;
+        // Type assertion for the response data
+        const userData = loginResponse.data as UserData;
         
         // Add name property for compatibility with existing code
         return {
@@ -223,7 +265,8 @@ export const getUserProfile = async (token: string): Promise<UserData> => {
       headers: { Authorization: `Bearer ${token}` }
     });
     
-    const userData = response.data;
+    // Type assertion for the response data
+    const userData = response.data as UserData;
     
     // Add name property for compatibility with existing code
     return {
@@ -256,7 +299,8 @@ export const updateUserProfile = async (
       { headers: { Authorization: `Bearer ${token}` } }
     );
     
-    const userData = response.data;
+    // Type assertion for the response data
+    const userData = response.data as UserData;
     
     // Add name property for compatibility with existing code
     return {
@@ -296,6 +340,98 @@ export const verifyEmail = async (): Promise<void> => {
     console.error('Verify email error:', error);
     if (error.response) {
       throw new Error(error.response.data.message || 'Failed to verify email');
+    }
+    throw error;
+  }
+};
+
+// Register as a service provider
+export const registerAsProvider = async (
+  email: string,
+  password: string,
+  providerData: ProviderRegistrationData
+): Promise<UserData> => {
+  try {
+    // 1. Register with Firebase
+    const userCredential: UserCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+    
+    // 2. Update profile in Firebase
+    await updateProfile(userCredential.user, {
+      displayName: `${providerData.firstName} ${providerData.lastName}`
+    });
+    
+    // 3. Send email verification
+    await sendEmailVerification(userCredential.user);
+    
+    // 4. Get Firebase ID token
+    const idToken = await getIdToken(userCredential.user);
+    
+    // 5. Register with backend as a provider
+    const response = await api.post('/auth/register-provider', 
+      providerData,
+      { headers: { Authorization: `Bearer ${idToken}` } }
+    );
+    
+    // Type assertion for the response data
+    const userData = response.data as UserData;
+    
+    // Add name property for compatibility with existing code
+    return {
+      ...userData,
+      name: `${userData.firstName} ${userData.lastName}`,
+      avatar: userData.avatar || undefined
+    };
+  } catch (error: any) {
+    console.error('Provider registration error:', error);
+    if (error.response) {
+      throw new Error(error.response.data.message || 'Provider registration failed');
+    }
+    throw error;
+  }
+};
+
+// Register as a service provider with Google
+export const registerAsProviderWithGoogle = async (
+  providerData: ProviderRegistrationData
+): Promise<UserData> => {
+  try {
+    // 1. Login with Firebase using Google provider
+    const userCredential: UserCredential = await signInWithPopup(auth, googleProvider);
+    
+    // 2. Get Firebase ID token
+    const idToken = await getIdToken(userCredential.user);
+    
+    // 3. Extract name parts from Google profile
+    const { displayName, email, photoURL } = userCredential.user;
+    const { firstName, lastName } = extractNameParts(displayName);
+    
+    // 4. Register with backend as a provider
+    const response = await api.post('/auth/register-provider', 
+      {
+        ...providerData,
+        firstName: providerData.firstName || firstName,
+        lastName: providerData.lastName || lastName,
+      },
+      { headers: { Authorization: `Bearer ${idToken}` } }
+    );
+    
+    // Type assertion for the response data
+    const userData = response.data as UserData;
+    
+    // Add name property for compatibility with existing code
+    return {
+      ...userData,
+      name: `${userData.firstName} ${userData.lastName}`,
+      avatar: userData.avatar || photoURL || undefined
+    };
+  } catch (error: any) {
+    console.error('Provider Google registration error:', error);
+    if (error.response) {
+      throw new Error(error.response.data.message || 'Provider registration with Google failed');
     }
     throw error;
   }
