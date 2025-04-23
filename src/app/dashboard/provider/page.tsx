@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminHeader from '@/components/layout/AdminHeader';
 import Footer from '@/components/layout/Footer';
+import ProviderBookingsList from '@/components/services/ProviderBookingsList';
 import api from '@/lib/axios';
 
 export default function ProviderDashboard() {
@@ -64,7 +66,7 @@ export default function ProviderDashboard() {
         // Check if onboarding is required
         const checkOnboardingStatus = async () => {
           try {
-            const response = await api.get('/api/providers/onboarding-status', {
+            const response = await api.get('/providers/onboarding-status', {
               headers: {
                 'Authorization': `Bearer ${user.token}`
               }
@@ -212,30 +214,64 @@ export default function ProviderDashboard() {
           {/* Availability Card */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-xl font-semibold mb-4">Availability</h2>
-            <p className="text-gray-600 mb-4">Set your availability to receive booking requests.</p>
-            <button 
-              className="w-full bg-black text-white py-2 rounded-md hover:bg-gray-800 transition-colors"
-              onClick={() => alert('This feature is coming soon!')}
-            >
-              Update Availability
-            </button>
+            <p className="text-gray-600 mb-4">Set your availability by creating time slots for your services. This allows clients to book your services at specific times.</p>
+            <Link href="/dashboard/provider/timeslots">
+              <button 
+                className="w-full bg-black text-white py-2 rounded-md hover:bg-gray-800 transition-colors"
+              >
+                Manage Time Slots
+              </button>
+            </Link>
           </div>
         </div>
         
-        {/* Upcoming Bookings */}
+        {/* Service Management */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Upcoming Bookings</h2>
-          <div className="text-center py-8 text-gray-500">
-            <p>You don't have any upcoming bookings.</p>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Your Services</h2>
+            <a 
+              href="/dashboard/provider/services"
+              className="text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Manage Services
+            </a>
           </div>
+          <p className="text-gray-600 mb-4">
+            Create and manage your service offerings. Add detailed descriptions, pricing, and images to attract more clients.
+          </p>
+          <a 
+            href="/dashboard/provider/services"
+            className="block w-full bg-black text-white text-center py-2 rounded-md hover:bg-gray-800 transition-colors"
+          >
+            Go to Services
+          </a>
         </div>
         
-        {/* Recent Bookings */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Bookings</h2>
-          <div className="text-center py-8 text-gray-500">
-            <p>You don't have any recent bookings.</p>
+        {/* Time Slot Management */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Availability</h2>
+            <a 
+              href="/dashboard/provider/timeslots"
+              className="text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Manage Time Slots
+            </a>
           </div>
+          <p className="text-gray-600 mb-4">
+            Set your availability by creating time slots for your services. This allows clients to book your services at specific times.
+          </p>
+          <a 
+            href="/dashboard/provider/timeslots"
+            className="block w-full bg-black text-white text-center py-2 rounded-md hover:bg-gray-800 transition-colors"
+          >
+            Manage Availability
+          </a>
+        </div>
+        
+        {/* Service Bookings */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <ProviderBookingsList limit={5} showViewAll={true} />
         </div>
       </main>
       
