@@ -77,8 +77,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (storedUser) {
             try {
               const userData = JSON.parse(storedUser);
-              setUser(userData);
-              setToken(userData.token);
+              // Ensure user role is properly set
+              const userWithRole = {
+                ...userData,
+                role: userData.role || 'user' // Default to 'user' if role is not defined
+              };
+              setUser(userWithRole);
+              setToken(userWithRole.token);
             } catch (parseError) {
               console.error('Error parsing stored user data:', parseError);
               localStorage.removeItem('user');
@@ -107,10 +112,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const userData = await loginWithEmailPassword(email, password);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      setToken(userData.token);
-      return userData;
+      // Ensure user role is properly set
+      const userWithRole = {
+        ...userData,
+        role: userData.role || 'user' // Default to 'user' if role is not defined
+      };
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
+      setToken(userWithRole.token);
+      return userWithRole;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -123,10 +133,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const userData = await loginWithGoogle();
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      setToken(userData.token);
-      return userData;
+      // Ensure user role is properly set
+      const userWithRole = {
+        ...userData,
+        role: userData.role || 'user' // Default to 'user' if role is not defined
+      };
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
+      setToken(userWithRole.token);
+      return userWithRole;
     } catch (error) {
       console.error('Google login error:', error);
       throw error;
@@ -144,9 +159,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const lastName = nameParts.slice(1).join(' ') || '';
       
       const userData = await registerWithEmailPassword(email, password, firstName, lastName);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      setToken(userData.token);
+      // Ensure user role is properly set
+      const userWithRole = {
+        ...userData,
+        role: userData.role || 'user' // Default to 'user' if role is not defined
+      };
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
+      setToken(userWithRole.token);
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -191,14 +211,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     phoneNumber?: string;
     address?: string;
   }) => {
-    if (!token) {
+    if (!token || !user) {
       throw new Error('Not authenticated');
     }
     
     try {
       const updatedUser = await updateUserProfile(token, profileData);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      // Ensure user role is preserved when updating profile
+      const userWithRole = {
+        ...updatedUser,
+        role: user.role || 'user' // Preserve existing role or default to 'user'
+      };
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
     } catch (error) {
       console.error('Update profile error:', error);
       throw error;
@@ -213,9 +238,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const userData = await registerAsProvider(email, password, providerData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      setToken(userData.token);
+      // Ensure user role is properly set
+      const userWithRole = {
+        ...userData,
+        role: 'provider' // Always set to 'provider' for provider registration
+      };
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
+      setToken(userWithRole.token);
     } catch (error) {
       console.error('Provider registration error:', error);
       throw error;
@@ -228,9 +258,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const userData = await registerAsProviderWithGoogle(providerData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      setToken(userData.token);
+      // Ensure user role is properly set
+      const userWithRole = {
+        ...userData,
+        role: 'provider' // Always set to 'provider' for provider registration
+      };
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
+      setToken(userWithRole.token);
     } catch (error) {
       console.error('Provider Google registration error:', error);
       throw error;

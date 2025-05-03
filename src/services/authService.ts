@@ -45,14 +45,20 @@ export interface ProviderRegistrationData {
   phoneNumber: string;
 }
 
+// Service area interface for provider onboarding
+export interface ServiceArea {
+  city: string;
+  state: string;
+}
+
 // Provider onboarding data interface
 export interface ProviderOnboardingData {
   bio?: string;
-  serviceCategories: string[];
+  serviceCategories: string[]; // Backend will convert these to ObjectIds
   certifications?: string[];
   yearsOfExperience: number;
   hourlyRate: number;
-  serviceAreas: string[];
+  serviceAreas: ServiceArea[]; // Now an array of objects with city and state
   languagesSpoken?: string[];
   availability?: any[];
 }
@@ -68,6 +74,7 @@ export interface ProviderAddress {
 
 // Helper function to get Firebase ID token
 const getIdToken = async (user: FirebaseUser): Promise<string> => {
+  // Force refresh to ensure we get the latest token
   return await user.getIdToken(true);
 };
 
@@ -320,7 +327,7 @@ export const updateUserProfile = async (
 // Verify email
 export const verifyEmail = async (): Promise<void> => {
   try {
-    const currentUser = auth.currentUser;
+      const currentUser = auth.currentUser;
     if (!currentUser) {
       throw new Error('No user is currently logged in');
     }
