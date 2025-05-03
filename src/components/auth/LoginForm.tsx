@@ -69,8 +69,11 @@ const LoginForm: React.FC = () => {
     try {
       const userData = await login(formData.email, formData.password);
       
+      // Ensure user role is properly set
+      const userRole = userData.role || 'user';
+      
       // Redirect based on user role
-      if (userData.role === 'provider') {
+      if (userRole === 'provider') {
         router.push('/dashboard/provider');
       } else {
         router.push('/dashboard');
@@ -114,8 +117,11 @@ const LoginForm: React.FC = () => {
     try {
       const userData = await loginWithGoogle();
       
+      // Ensure user role is properly set
+      const userRole = userData.role || 'user';
+      
       // Redirect based on user role
-      if (userData.role === 'provider') {
+      if (userRole === 'provider') {
         router.push('/dashboard/provider');
       } else {
         router.push('/dashboard');
@@ -135,8 +141,11 @@ const LoginForm: React.FC = () => {
     try {
       const userData = await login('demo@example.com', 'password123');
       
+      // Ensure user role is properly set
+      const userRole = userData.role || 'user';
+      
       // Redirect based on user role
-      if (userData.role === 'provider') {
+      if (userRole === 'provider') {
         router.push('/dashboard/provider');
       } else {
         router.push('/dashboard');
