@@ -15,9 +15,12 @@ interface AuthenticatedHeaderProps {
 }
 
 const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({ user }) => {
-  const { logout } = useAuth();
+  const { logout, user: authUser } = useAuth();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  
+  // Determine dashboard URL based on user role
+  const dashboardUrl = authUser?.role === 'provider' ? '/dashboard/provider' : '/dashboard';
 
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
@@ -31,7 +34,7 @@ const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({ user }) => {
   return (
     <header className="bg-white shadow-sm">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link href="/dashboard" className="text-2xl font-bold text-black">
+        <Link href={dashboardUrl} className="text-2xl font-bold text-black">
           Caregiving
         </Link>
         
@@ -62,7 +65,7 @@ const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({ user }) => {
                   />
                 ) : (
                   <span className="text-gray-600 font-medium">
-                    {user.name.charAt(0).toUpperCase()}
+                    {user.name}
                   </span>
                 )}
               </div>
