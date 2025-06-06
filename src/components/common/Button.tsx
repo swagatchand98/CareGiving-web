@@ -24,9 +24,13 @@ const Button: React.FC<ButtonProps> = ({
   
   const widthStyles = fullWidth ? 'w-full' : '';
   
+  // Add disabled styles
+  const disabledStyles = props.disabled ? 
+    'opacity-50 cursor-not-allowed hover:bg-opacity-100' : '';
+  
   return (
     <button
-      className={`${baseStyles} ${variantStyles[variant]} ${widthStyles} ${className}`}
+      className={`${baseStyles} ${variantStyles[variant]} ${widthStyles} ${disabledStyles} ${className}`}
       {...props}
     >
       {children}

@@ -35,6 +35,10 @@ export interface Service {
     specialRequirements?: string;
     includedServices?: string[];
   };
+  rating?: {
+    average: number;
+    count: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -77,8 +81,7 @@ export const getServices = async (
     minPrice?: number;
     maxPrice?: number;
     priceType?: string;
-  },
-  retryCount: number = 0
+  }
 ): Promise<ServicesResponse> => {
   try {
     let url = `/services?page=${page}&limit=${limit}`;
@@ -90,95 +93,21 @@ export const getServices = async (
       if (filters.priceType) url += `&priceType=${filters.priceType}`;
     }
     
-    // Add a small delay before making the request to avoid rate limiting
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
     const response = await api.get(url);
     return (response.data as any).data as ServicesResponse;
   } catch (error: any) {
     console.error('Get services error:', error);
-    
-    // Handle timeout errors
-    if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-      console.log(`Request timed out for services list`);
-      
-      // If we haven't retried too many times, retry with a longer timeout
-      if (retryCount < 2) {
-        const delay = 1000; // 1 second delay before retry
-        console.log(`Retrying timed out request in ${delay}ms... (Attempt ${retryCount + 1}/2)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with a longer timeout
-        return getServices(page, limit, filters, retryCount + 1);
-      }
-      
-      throw new Error('Request timed out. The server is taking too long to respond. Please try again later.');
-    }
-    
-    // If we get a 429 error (too many requests), retry with exponential backoff
-    if (error.response?.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-      
-      // Wait for the delay period
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // Retry with exponential backoff
-      return getServices(page, limit, filters, retryCount + 1);
-    }
-    
     throw error.response?.data?.message || error.message || 'Failed to get services';
   }
 };
 
 // Get service by ID
-export const getServiceById = async (serviceId: string, retryCount: number = 0): Promise<ServiceResponse> => {
+export const getServiceById = async (serviceId: string): Promise<ServiceResponse> => {
   try {
-    // Add a small delay before making the request to avoid rate limiting
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
     const response = await api.get(`/services/${serviceId}`);
     return (response.data as any).data as ServiceResponse;
   } catch (error: any) {
     console.error('Get service error:', error);
-    
-    // Handle timeout errors
-    if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-      console.log(`Request timed out for service ID: ${serviceId}`);
-      
-      // If we haven't retried too many times, retry with a longer timeout
-      if (retryCount < 2) {
-        const delay = 1000; // 1 second delay before retry
-        console.log(`Retrying timed out request in ${delay}ms... (Attempt ${retryCount + 1}/2)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with a longer timeout
-        return getServiceById(serviceId, retryCount + 1);
-      }
-      
-      throw new Error('Request timed out. The server is taking too long to respond. Please try again later.');
-    }
-    
-    // If we get a 429 error (too many requests), retry with exponential backoff
-    if (error.response?.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-      
-      // Wait for the delay period
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // Retry with exponential backoff
-      return getServiceById(serviceId, retryCount + 1);
-    }
-    
     throw error.response?.data?.message || error.message || 'Failed to get service details';
   }
 };
@@ -191,8 +120,7 @@ export const searchServices = async (
     minPrice?: number;
     maxPrice?: number;
     priceType?: string;
-  },
-  retryCount: number = 0
+  }
 ): Promise<ServicesResponse> => {
   try {
     let url = '/services/search';
@@ -211,134 +139,43 @@ export const searchServices = async (
       url += `?${params.toString()}`;
     }
     
-    // Add a small delay before making the request to avoid rate limiting
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
     const response = await api.get(url);
     return (response.data as any).data as ServicesResponse;
   } catch (error: any) {
     console.error('Search services error:', error);
-    
-    // Handle timeout errors
-    if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-      console.log(`Request timed out for search services`);
-      
-      // If we haven't retried too many times, retry with a longer timeout
-      if (retryCount < 2) {
-        const delay = 1000; // 1 second delay before retry
-        console.log(`Retrying timed out request in ${delay}ms... (Attempt ${retryCount + 1}/2)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with a longer timeout
-        return searchServices(query, filters, retryCount + 1);
-      }
-      
-      throw new Error('Request timed out. The server is taking too long to respond. Please try again later.');
-    }
-    
-    // If we get a 429 error (too many requests), retry with exponential backoff
-    if (error.response?.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-      
-      // Wait for the delay period
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // Retry with exponential backoff
-      return searchServices(query, filters, retryCount + 1);
-    }
-    
     throw error.response?.data?.message || error.message || 'Failed to search services';
   }
 };
 
 // Get services by category
-export const getServicesByCategory = async (categoryId: string, retryCount: number = 0): Promise<ServicesResponse> => {
+export const getServicesByCategory = async (categoryId: string): Promise<ServicesResponse> => {
   try {
-    // Add a small delay before making the request to avoid rate limiting
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
     const response = await api.get(`/services/category/${categoryId}`);
     return (response.data as any).data as ServicesResponse;
   } catch (error: any) {
     console.error('Get services by category error:', error);
-    
-    // If we get a 429 error (too many requests), retry with exponential backoff
-    if (error.response?.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-      
-      // Wait for the delay period
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // Retry with exponential backoff
-      return getServicesByCategory(categoryId, retryCount + 1);
-    }
-    
     throw error.response?.data?.message || error.message || 'Failed to get services by category';
   }
 };
 
 // Get all service categories
-export const getServiceCategories = async (retryCount: number = 0): Promise<ServiceCategoriesResponse> => {
+export const getServiceCategories = async (): Promise<ServiceCategoriesResponse> => {
   try {
-    // Add a small delay before making the request to avoid rate limiting
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
     const response = await api.get('/services/categories');
     return (response.data as any).data as ServiceCategoriesResponse;
   } catch (error: any) {
     console.error('Get service categories error:', error);
-    
-    // If we get a 429 error (too many requests), retry with exponential backoff
-    if (error.response?.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-      
-      // Wait for the delay period
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // Retry with exponential backoff
-      return getServiceCategories(retryCount + 1);
-    }
-    
     throw error.response?.data?.message || error.message || 'Failed to get service categories';
   }
 };
 
 // Get service category by ID
-export const getServiceCategoryById = async (categoryId: string, retryCount: number = 0): Promise<{ category: ServiceCategory }> => {
+export const getServiceCategoryById = async (categoryId: string): Promise<{ category: ServiceCategory }> => {
   try {
-    // Add a small delay before making the request to avoid rate limiting
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
     const response = await api.get(`/services/categories/${categoryId}`);
     return (response.data as any).data as { category: ServiceCategory };
   } catch (error: any) {
     console.error('Get service category error:', error);
-    
-    // If we get a 429 error (too many requests), retry with exponential backoff
-    if (error.response?.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-      
-      // Wait for the delay period
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // Retry with exponential backoff
-      return getServiceCategoryById(categoryId, retryCount + 1);
-    }
-    
     throw error.response?.data?.message || error.message || 'Failed to get service category';
   }
 };
@@ -452,36 +289,17 @@ export const deleteService = async (serviceId: string): Promise<void> => {
 // Get provider's own services (provider only)
 export const getProviderServices = async (
   page: number = 1,
-  limit: number = 10,
-  retryCount: number = 0
+  limit: number = 10
 ): Promise<ServicesResponse> => {
   try {
     console.log('Fetching provider services');
     const url = `/providers/services?page=${page}&limit=${limit}`;
-    
-    // Add a small delay before making the request to avoid rate limiting
-    if (retryCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
     
     const response = await api.get(url);
     console.log('Provider services response:', response.data);
     return (response.data as any).data as ServicesResponse;
   } catch (error: any) {
     console.error('Get provider services error:', error);
-    
-    // If we get a 429 error (too many requests), retry with exponential backoff
-    if (error.response?.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-      
-      // Wait for the delay period
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // Retry with exponential backoff
-      return getProviderServices(page, limit, retryCount + 1);
-    }
-    
     throw error.response?.data?.message || error.message || 'Failed to get provider services';
   }
 };

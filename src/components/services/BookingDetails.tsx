@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import useBooking from '@/hooks/useBooking';
+import useReview from '@/hooks/useReview';
 import { BookingResponse } from '@/services/bookingService';
 import Button from '../common/Button';
+import ReviewForm from '../reviews/ReviewForm';
+import ChatInterface from '../chat/ChatInterface';
 
 interface BookingDetailsProps {
   bookingId: string;
@@ -19,15 +22,89 @@ const BookingDetails: React.FC<BookingDetailsProps> = ({ bookingId }) => {
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [hasReview, setHasReview] = useState(false);
+  
+  const chatSectionRef = useRef<HTMLDivElement>(null);
+  const { fetchServiceReviews } = useReview();
+  
+  // Use a ref to track if data has been fetched
+  const dataFetchedRef = useRef(false);
   
   useEffect(() => {
-    loadBookingDetails();
+    // Only fetch data once
+    if (dataFetchedRef.current) return;
+    
+    const fetchData = async () => {
+      await loadBookingDetails();
+      
+      // Check if a review exists for this booking when it loads
+      if (bookingId) {
+        await checkForExistingReview();
+      }
+      
+      // Mark data as fetched
+      dataFetchedRef.current = true;
+    };
+    
+    fetchData();
   }, [bookingId]);
+  
+  // Scroll to chat section if URL has #chat hash
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#chat' && chatSectionRef.current) {
+      // Wait for the component to fully render
+      setTimeout(() => {
+        chatSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+    }
+  }, [booking]);
+  
+  // Check if a review already exists for this booking
+  const checkForExistingReview = async () => {
+    try {
+      // We'll use the service reviews endpoint to check if this booking has a review
+      // This is a simplification - in a real app, you might have a dedicated endpoint
+      if (booking?.booking?.serviceId?._id) {
+        const serviceId = booking.booking.serviceId._id;
+        const response = await fetchServiceReviews(serviceId);
+        
+        // Check if any of the reviews are for this booking
+        const existingReview = response.reviews.find(
+          review => (review as any).bookingId?._id === bookingId
+        );
+        
+        setHasReview(!!existingReview);
+      }
+    } catch (err) {
+      console.error('Error checking for existing review:', err);
+    }
+  };
+  
+  // Handle successful review submission
+  const handleReviewSuccess = () => {
+    setShowReviewForm(false);
+    setHasReview(true);
+    // Optionally refresh booking details
+    loadBookingDetails();
+  };
   
   const loadBookingDetails = async () => {
     try {
+      console.log('Fetching booking details for ID:', bookingId);
+      console.log('Current user:', user);
+      
       const response = await fetchBookingById(bookingId);
+      console.log('Booking details response:', response);
       setBooking(response);
+      
+      // Log the IDs for comparison
+      if (response && user) {
+        console.log('User ID from context:', user.id);
+        console.log('User firebaseUid:', user.firebaseUid);
+        console.log('Provider ID from booking:', response.booking.providerId._id);
+        console.log('Client ID from booking:', response.booking.userId._id);
+      }
     } catch (err) {
       console.error('Error loading booking details:', err);
     }
@@ -112,12 +189,52 @@ const BookingDetails: React.FC<BookingDetailsProps> = ({ bookingId }) => {
   
   // Check if user is the provider for this booking
   const isProvider = () => {
-    return user && booking && user.id === booking.booking.providerId._id;
+    if (!user || !booking) return false;
+    
+    // Get all possible user IDs
+    const userIds = [
+      user.id,
+      user.firebaseUid,
+      user.id?.toString(),
+      user.firebaseUid?.toString()
+    ].filter(Boolean); // Filter out undefined/null values
+    
+    // Get all possible provider IDs
+    const providerIds = [
+      booking.booking.providerId._id,
+      booking.booking.providerId._id?.toString()
+    ].filter(Boolean);
+    
+    console.log('Provider check - User IDs:', userIds);
+    console.log('Provider check - Provider IDs:', providerIds);
+    
+    // Check if any user ID matches any provider ID
+    return userIds.some(uid => providerIds.includes(uid));
   };
   
   // Check if user is the client for this booking
   const isClient = () => {
-    return user && booking && user.id === booking.booking.userId._id;
+    if (!user || !booking) return false;
+    
+    // Get all possible user IDs
+    const userIds = [
+      user.id,
+      user.firebaseUid,
+      user.id?.toString(),
+      user.firebaseUid?.toString()
+    ].filter(Boolean); // Filter out undefined/null values
+    
+    // Get all possible client IDs
+    const clientIds = [
+      booking.booking.userId._id,
+      booking.booking.userId._id?.toString()
+    ].filter(Boolean);
+    
+    console.log('Client check - User IDs:', userIds);
+    console.log('Client check - Client IDs:', clientIds);
+    
+    // Check if any user ID matches any client ID
+    return userIds.some(uid => clientIds.includes(uid));
   };
   
   if (isLoading || !booking) {
@@ -129,9 +246,27 @@ const BookingDetails: React.FC<BookingDetailsProps> = ({ bookingId }) => {
   }
   
   if (error) {
+    // Check if the error is a 403 Forbidden error
+    if (error.includes('not authorized')) {
+      return (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+          <h3 className="font-semibold mb-2">Access Denied</h3>
+          <p>You are not authorized to view this booking. This could be because:</p>
+          <ul className="list-disc ml-5 mt-2">
+            <li>You are not the client who made this booking</li>
+            <li>You are not the provider for this service</li>
+            <li>There might be an issue with your account permissions</li>
+          </ul>
+          <p className="mt-2">Please contact support if you believe this is an error.</p>
+        </div>
+      );
+    }
+    
+    // For other errors
     return (
       <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-        {error}
+        <h3 className="font-semibold mb-2">Error Loading Booking</h3>
+        <p>{error}</p>
       </div>
     );
   }
@@ -144,6 +279,22 @@ const BookingDetails: React.FC<BookingDetailsProps> = ({ bookingId }) => {
           {booking.booking.status.charAt(0).toUpperCase() + booking.booking.status.slice(1)}
         </span>
       </div>
+      
+      {/* Debug Information - Only visible in development */}
+      {process.env.NODE_ENV !== 'production' && (
+        <div className="mb-6 p-4 bg-gray-100 rounded-md">
+          <h3 className="font-semibold mb-2">Debug Information</h3>
+          <div className="text-xs font-mono overflow-auto">
+            <p><strong>User ID:</strong> {user?.id}</p>
+            <p><strong>User Firebase UID:</strong> {user?.firebaseUid}</p>
+            <p><strong>User Role:</strong> {user?.role}</p>
+            <p><strong>Booking User ID:</strong> {booking.booking.userId._id}</p>
+            <p><strong>Booking Provider ID:</strong> {booking.booking.providerId._id}</p>
+            <p><strong>Is Provider:</strong> {isProvider() ? 'Yes' : 'No'}</p>
+            <p><strong>Is Client:</strong> {isClient() ? 'Yes' : 'No'}</p>
+          </div>
+        </div>
+      )}
       
       {/* Service Information */}
       <div className="mb-6">
@@ -252,10 +403,49 @@ const BookingDetails: React.FC<BookingDetailsProps> = ({ bookingId }) => {
         </div>
       )}
       
+      {/* Chat Section */}
+      <div className="mb-6" ref={chatSectionRef} id="chat">
+        
+        {/* Show chat interface for confirmed or in-progress bookings */}
+        {(booking.booking.status === 'in-progress' || booking.booking.status === 'confirmed') ? (
+          <div>
+            <ChatInterface 
+              bookingId={bookingId} 
+              isActive={true} 
+            />
+          </div>
+        ) : booking.booking.status === 'cancelled' ? (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md">
+            <p>Chat is not available for cancelled bookings.</p>
+          </div>
+        ) : booking.booking.status === 'completed' ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+            <p className="mb-4">This booking is completed, but you can still view your chat history.</p>
+            <Button
+              onClick={() => router.push(`/chat/${bookingId}`)}
+              variant="outline"
+            >
+              View Chat History
+            </Button>
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <p className="mb-4">Chat will be available once your booking is confirmed.</p>
+            <Button
+              onClick={() => router.push(`/chat/${bookingId}`)}
+              variant="primary"
+              disabled={booking.booking.status === 'pending'}
+            >
+              {booking.booking.status === 'pending' ? 'Chat Not Available Yet' : 'Start Chat'}
+            </Button>
+          </div>
+        )}
+      </div>
+      
       {/* Payment Information */}
-      {booking.transaction && (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold mb-2">Payment Information</h3>
+        {booking.transaction && booking.transaction.status !== 'pending' ? (
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -272,42 +462,109 @@ const BookingDetails: React.FC<BookingDetailsProps> = ({ bookingId }) => {
               </div>
             </div>
           </div>
+        ) : (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            {isClient() && booking.booking.status === 'pending' ? (
+              <div className="flex flex-col md:flex-row justify-between items-center">
+                <div className="mb-4 md:mb-0">
+                  <p className="font-medium text-yellow-800 mb-1">Payment Required</p>
+                  <p className="text-sm text-yellow-700">
+                    Your booking requires payment to be confirmed.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => router.push(`/payment/${bookingId}`)}
+                  variant="primary"
+                >
+                  Pay Now (${booking.booking.totalPrice.toFixed(2)})
+                </Button>
+              </div>
+            ) : (
+              <p className="text-yellow-700">
+                {isClient() 
+                  ? "Payment processing. This may take a moment to update."
+                  : "Awaiting client payment."}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Review Section - Only show for completed bookings where the user is the client */}
+      {isClient() && booking.booking.status === 'completed' && (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-2">Rate Your Experience</h3>
+          
+          {hasReview ? (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+              <p>Thank you for your review! Your feedback helps other users find great caregivers.</p>
+            </div>
+          ) : showReviewForm ? (
+            <ReviewForm 
+              bookingId={bookingId} 
+              onSuccess={handleReviewSuccess}
+              onCancel={() => setShowReviewForm(false)}
+            />
+          ) : (
+            <div className="bg-gray-50 rounded-lg p-6 text-center">
+              <p className="mb-4">
+                How was your experience with {booking.booking.providerId.firstName}? Your feedback helps other users find great caregivers.
+              </p>
+              <Button
+                onClick={() => setShowReviewForm(true)}
+                variant="primary"
+              >
+                Write a Review
+              </Button>
+            </div>
+          )}
         </div>
       )}
       
       {/* Action Buttons */}
-      <div className="flex flex-wrap justify-end gap-3 mt-8">
-        {/* Provider Actions */}
-        {isProvider() && getNextStatusOptions(booking.booking.status).map((option) => (
-          <Button
-            key={option.value}
-            onClick={() => handleUpdateStatus(option.value as any)}
-            disabled={isUpdatingStatus}
-            variant="primary"
-          >
-            {isUpdatingStatus ? 'Updating...' : option.label}
-          </Button>
-        ))}
-        
-        {/* Client Actions */}
+      <div className="mt-8">
+        {/* Client Cancel Button - Prominently displayed at the top of actions */}
         {isClient() && (booking.booking.status === 'pending' || booking.booking.status === 'confirmed') && (
-          <Button
-            onClick={handleCancelBooking}
-            disabled={isUpdatingStatus}
-            variant="secondary"
-            className="bg-red-600 text-white hover:bg-red-700 border-red-600"
-          >
-            {isUpdatingStatus ? 'Cancelling...' : 'Cancel Booking'}
-          </Button>
+          <div className="mb-4 flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div>
+              <h3 className="font-semibold text-red-700">Need to cancel?</h3>
+              <p className="text-sm text-red-600">
+                You can cancel this booking without penalty until the service begins.
+              </p>
+            </div>
+            <Button
+              onClick={handleCancelBooking}
+              disabled={isUpdatingStatus}
+              variant="secondary"
+              className="bg-red-600 text-white hover:bg-red-700 border-red-600"
+            >
+              {isUpdatingStatus ? 'Cancelling...' : 'Cancel Booking'}
+            </Button>
+          </div>
         )}
         
-        {/* Back Button */}
-        <Button
-          onClick={() => router.back()}
-          variant="outline"
-        >
-          Back
-        </Button>
+        {/* Other Action Buttons */}
+        <div className="flex flex-wrap justify-end gap-3">
+          {/* Provider Actions */}
+          {isProvider() && getNextStatusOptions(booking.booking.status).map((option) => (
+            <Button
+              key={option.value}
+              onClick={() => handleUpdateStatus(option.value as any)}
+              disabled={isUpdatingStatus}
+              variant="primary"
+            >
+              {isUpdatingStatus ? 'Updating...' : option.label}
+            </Button>
+          ))}
+          
+          {/* Back Button */}
+          <Button
+            onClick={() => router.back()}
+            variant="outline"
+          >
+            Back
+          </Button>
+        </div>
       </div>
       
       {/* Update Error */}

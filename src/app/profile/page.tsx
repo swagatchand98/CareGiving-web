@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import AuthenticatedHeader from '@/components/layout/AuthenticatedHeader';
+import EnhancedHeader from '@/components/layout/EnhancedHeader';
 import Footer from '@/components/layout/Footer';
 import Input from '@/components/common/Input';
 import Button from '@/components/common/Button';
@@ -66,7 +66,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <AuthenticatedHeader user={user} />
+      <EnhancedHeader user={user} />
       
       <main className="flex-grow py-10">
         <div className="container mx-auto px-4">

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import AdminHeader from '@/components/layout/AdminHeader';
+import ProviderHeader from '@/components/layout/ProviderHeader';
 import Footer from '@/components/layout/Footer';
 import ProviderBookingsList from '@/components/services/ProviderBookingsList';
 import api from '@/lib/axios';
@@ -99,18 +99,41 @@ export default function ProviderDashboard() {
     }
   }, [onboardingRequired, isCheckingOnboarding, router]);
 
+  // Set a timeout to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsCheckingOnboarding(false);
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
   // Show loading state
-  if (isLoading || !user) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl">Loading...</p>
       </div>
     );
   }
+  
+  // If user is not authenticated, show a message or redirect
+  if (!isAuthenticated) {
+    return null; // We'll redirect in the useEffect hook
+  }
+  
+  // Ensure user is not null before rendering the dashboard
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl">Loading user data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <AdminHeader user={user} />
+      <ProviderHeader user={user} />
       
       <main className="flex-grow container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8">

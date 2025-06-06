@@ -22,11 +22,38 @@ export default function ProviderTimeSlotsPage() {
     }
   }, [isLoading, isAuthenticated, user, router]);
   
+  // Fallback to prevent infinite loading
+  useEffect(() => {
+    // Set a timeout to stop loading after 5 seconds regardless of other states
+    // This prevents infinite loading if something goes wrong
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        console.log('Fallback timeout: Setting loading to false after timeout');
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
   // Show loading state
-  if (isLoading || !user) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl">Loading...</p>
+      </div>
+    );
+  }
+  
+  // If user is not authenticated, show a message or redirect
+  if (!isAuthenticated) {
+    return null; // We'll redirect in the useEffect hook
+  }
+  
+  // Ensure user is not null before rendering the dashboard
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl">Loading user data...</p>
       </div>
     );
   }

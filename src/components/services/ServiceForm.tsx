@@ -33,9 +33,9 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     categoryId: typeof initialData?.categoryId === 'string' 
       ? initialData.categoryId 
       : initialData?.categoryId?._id || '',
-    priceAmount: initialData?.price.amount || 0,
-    priceType: initialData?.price.type || 'fixed',
-    duration: initialData?.duration || 60,
+    priceAmount: initialData?.price?.amount ? Number(initialData.price.amount) : 0,
+    priceType: initialData?.price?.type || 'fixed',
+    duration: initialData?.duration ? Number(initialData.duration) : 60,
     specialRequirements: initialData?.additionalDetails?.specialRequirements || '',
     includedServices: initialData?.additionalDetails?.includedServices || []
   });
@@ -203,7 +203,9 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'priceAmount' ? parseFloat(value) : value
+      [name]: name === 'priceAmount' || name === 'duration' 
+        ? (value === '' ? 0 : parseFloat(value) || 0) 
+        : value
     }));
     
     // Clear error when field is changed

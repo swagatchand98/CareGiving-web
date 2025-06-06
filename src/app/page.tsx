@@ -1,26 +1,37 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import Header from '@/components/layout/Header';
+import PublicHeader from '@/components/layout/PublicHeader';
 import Footer from '@/components/layout/Footer';
 import Link from 'next/link';
 import Button from '@/components/common/Button';
 import { initAllAnimations, initTypedText } from '@/lib/animation-utils';
+import Image from 'next/image';
+import caregiver from '../../public/images/caregiver1.jpeg'
 import '../styles/animations.css';
 
 export default function Home() {
-  const { isAuthenticated, isLoading, loginWithGoogle } = useAuth();
+  const { user, isAuthenticated, isLoading, loginWithGoogle } = useAuth();
   const router = useRouter();
   const typedTextRef = useRef(null);
   const [animationsInitialized, setAnimationsInitialized] = useState(false);
 
-  // Redirect to dashboard if authenticated
+  // Redirect to appropriate dashboard based on role if authenticated
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.push('/dashboard');
+    if (!isLoading && isAuthenticated && user) {
+      // Check user role and redirect accordingly
+      if (user.role === 'admin') {
+        router.push('/dashboard/admin');
+      } else if (user.role === 'provider') {
+        router.push('/dashboard/provider');
+      } else {
+        // Default to user dashboard
+        router.push('/dashboard/user');
+      }
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   // Initialize animations
   useEffect(() => {
@@ -49,8 +60,17 @@ export default function Home() {
   // Handle Google Sign In
   const handleGoogleSignIn = async () => {
     try {
-      await loginWithGoogle();
-      router.push('/dashboard');
+      const userData = await loginWithGoogle();
+      
+      // Redirect based on user role
+      if (userData.role === 'admin') {
+        router.push('/dashboard/admin');
+      } else if (userData.role === 'provider') {
+        router.push('/dashboard/provider');
+      } else {
+        // Default to user dashboard
+        router.push('/dashboard/user');
+      }
     } catch (error) {
       console.error('Google sign-in error:', error);
     }
@@ -67,44 +87,294 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <PublicHeader />
       
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="bg-gradient-to-r from-gray-100 to-gray-200 py-20">
-          <div className="container mx-auto px-4 relative">
-            <div className="flex flex-col md:flex-row items-center">
-              <div className="md:w-1/2 mb-10 md:mb-0">
-                <h1 ref={typedTextRef} className="text-4xl md:text-5xl font-bold mb-6 animate-gradient-text">
-                  Personalized Care for Personalized Life
+        <section className="relative min-h-[90vh] flex">
+          <div className="container mx-auto px-6 md:px-12 z-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mt-50">
+              {/* Left Column - Heading */}
+              <div>
+                <h1 className="text-4xl md:text-5xl lg:text-[42px] font-extrabold text-gray-900 mb-6 leading-14">
+                  <span>Bringing Joy to Your Home,</span> <br />
+                  <span className="">One Smile at a Time</span>
                 </h1>
-                <p className="text-lg text-gray-600 mb-8 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
-                  Professional caregiving services tailored to your unique needs. 
-                  Our experienced caregivers provide compassionate care with love and dedication.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up" style={{ animationDelay: '0.6s' }}>
-                  <Link href="/services/browse">
-                    <Button className="px-8 py-3 text-lg btn-pulse hover-lift">
-                      Browse Services
-                    </Button>
-                  </Link>
-                  <Link href="/auth/provider-register">
-                    <Button variant="secondary" className="px-8 py-3 text-lg btn-pulse hover-lift">
-                      Become a Caregiver
-                    </Button>
-                  </Link>
-                </div>
               </div>
-              <div className="md:w-1/2 md:pl-10 animate-fade-in-right" style={{ animationDelay: '0.5s' }}>
-                <div className="rounded-lg h-80 md:h-96 w-full overflow-hidden shadow-lg hover-scale">
-                  <img 
-                    src="/images/placeholders/hero.svg" 
-                    alt="Caregiving Services" 
-                    className="w-full h-full object-cover"
+              
+              {/* Right Column - Description */}
+              <div className='flex flex-col items-end'>
+                <p className="text-lg text-gray-700 mb-6 min-h-30 w-100">
+                  We Provide compassionate home services and caregiving solutions, delivering personalized care and support to families and individuals in need. We're dedicated to enhancing.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Caregiver Cards Section - Infinite Scroll */}
+          <div className="absolute -bottom-10 left-0 right-0 overflow-hidden pb-24">
+            <motion.div
+              className="flex"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{
+                x: {
+                  repeat: Infinity,
+                  repeatType: "loop",
+                  duration: 20,
+                  ease: "linear",
+                },
+              }}
+            >
+              {/* First set of cards */}
+              <div className="flex space-x-5 px-3">
+                {/* Card 1 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 2 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 3 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 4 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 5 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
                   />
                 </div>
               </div>
+
+              {/* Duplicate set of cards for seamless looping */}
+              <div className="flex space-x-5 px-3">
+                {/* Card 1 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 2 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 3 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 4 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+
+                {/* Card 5 */}
+                <div className="min-h-[380px] rounded-3xl w-[260px] flex-shrink-0 overflow-hidden shadow-lg transform hover:-translate-y-2 transition-all duration-300">
+                  <Image 
+                    src={caregiver}
+                    alt="Caregiver"
+                    className="object-cover h-full w-full"
+                    priority
+                    fill
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+                        
+              {/* CTA Button */}
+            <div className="absolute bottom-25 left-0 right-0 flex justify-center items-center">
+            <Link href="/services">
+              <div className="px-12 py-4 text-[18px] w-150 font-bold bg-blue-600 hover:bg-blue-700 rounded-full text-white shadow-lg transition duration-300 ease-in-out transform hover:scale-105 text-center">
+              We are Ready to Serve You
+              </div>
+            </Link>
             </div>
+        </section>
+
+        {/* Helping Hand Section */}
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              {/* Left Content */}
+              <div className="md:w-1/2 reveal reveal-left">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  Extending a Helping Hand with Compassion and Care
+                </h2>
+                <p className="text-gray-600 mb-8">
+                  We deliver tailored support with empathy and kindness, ensuring your loved ones receive the 
+                  best possible care. Our team is dedicated to fostering comfort, security, and well-being.
+                </p>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-6 mb-8">
+                  {/* Stat 1 */}
+                  <div className="stagger-fade-in-up">
+                    <h3 className="text-4xl font-bold text-black">2000+</h3>
+                    <p className="text-gray-600">Services</p>
+                  </div>
+                  
+                  {/* Stat 2 */}
+                  <div className="stagger-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                    <h3 className="text-4xl font-bold text-black">50+</h3>
+                    <p className="text-gray-600">Cities</p>
+                  </div>
+                  
+                  {/* Stat 3 */}
+                  <div className="stagger-fade-in-up" style={{ animationDelay: '0.4s' }}>
+                    <h3 className="text-4xl font-bold text-black">5000+</h3>
+                    <p className="text-gray-600">Verified Crew</p>
+                  </div>
+                  
+                  {/* Stat 4 */}
+                  <div className="stagger-fade-in-up" style={{ animationDelay: '0.6s' }}>
+                    <h3 className="text-4xl font-bold text-black">10000+</h3>
+                    <p className="text-gray-600">Satisfied Customers</p>
+                  </div>
+                </div>
+                
+                <Link href="/services">
+                  <Button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                    See All Services
+                  </Button>
+                </Link>
+              </div>
+              
+              {/* Right Content - Pricing Cards */}
+              <div className="md:w-1/2 mt-10 md:mt-0 reveal reveal-right">
+                <div className="flex flex-col md:flex-row gap-4 justify-center">
+                  {/* Bronze Plan */}
+                  <div className="bg-blue-100 rounded-lg p-6 text-center hover-lift">
+                    <h3 className="text-xl font-semibold mb-1">Bronze</h3>
+                    <p className="text-sm text-gray-600 mb-4">Access Some Limited Services</p>
+                    <div className="text-4xl font-bold mb-4">$0</div>
+                    <ul className="text-left space-y-2 mb-6">
+                      {[1, 2, 3, 4, 5].map((item) => (
+                        <li key={item} className="flex items-center">
+                          <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center mr-2 text-xs">✓</span>
+                          <span>Service Access</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button className="w-full bg-transparent border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white">
+                      Select
+                    </Button>
+                  </div>
+                  
+                  {/* Silver Plan */}
+                  <div className="bg-gray-100 rounded-lg p-6 text-center hover-lift">
+                    <h3 className="text-xl font-semibold mb-1">Silver</h3>
+                    <p className="text-sm text-gray-600 mb-4">Some Major Services</p>
+                    <div className="text-4xl font-bold mb-4">$149</div>
+                    <ul className="text-left space-y-2 mb-6">
+                      {[1, 2, 3, 4, 5].map((item) => (
+                        <li key={item} className="flex items-center">
+                          <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center mr-2 text-xs">✓</span>
+                          <span>Service Access</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button className="w-full">
+                      Select
+                    </Button>
+                  </div>
+                  
+                  {/* Gold Plan */}
+                  <div className="bg-yellow-50 rounded-lg p-6 text-center hover-lift">
+                    <h3 className="text-xl font-semibold mb-1">Golden</h3>
+                    <p className="text-sm text-gray-600 mb-4">Enjoy All Premium Services</p>
+                    <div className="text-4xl font-bold mb-4">$299</div>
+                    <ul className="text-left space-y-2 mb-6">
+                      {[1, 2, 3, 4, 5, 6, 7].map((item) => (
+                        <li key={item} className="flex items-center">
+                          <span className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center mr-2 text-xs">✓</span>
+                          <span>Service Access</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button className="w-full bg-yellow-500 hover:bg-yellow-600">
+                      Select
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Community Section */}
+        <section className="py-16 bg-black text-white">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 reveal">
+              Welcome To The Community Of Care Crew
+            </h2>
+            <h3 className="text-2xl md:text-3xl font-semibold mb-6 reveal" style={{ animationDelay: '0.2s' }}>
+              Consistent Care Constant Comfort
+            </h3>
+            <p className="text-gray-300 max-w-2xl mx-auto mb-8 reveal" style={{ animationDelay: '0.4s' }}>
+              Discover how our commitment to care made all difference and brings smiles on thousand faces
+            </p>
           </div>
         </section>
 

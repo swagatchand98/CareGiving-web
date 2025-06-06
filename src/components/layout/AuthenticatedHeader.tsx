@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '../common/Button';
 import { useAuth } from '@/contexts/AuthContext';
+import NotificationBell from '../common/NotificationBell';
 
 interface AuthenticatedHeaderProps {
   user: {
@@ -50,7 +51,8 @@ const AuthenticatedHeader: React.FC<AuthenticatedHeaderProps> = ({ user }) => {
           </Link>
         </nav>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-6">
+          <NotificationBell />
           <div className="relative">
             <button 
               onClick={toggleDropdown}

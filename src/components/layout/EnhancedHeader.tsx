@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Button from '../common/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserData } from '@/services/authService';
+import AddressSelector from '../address/AddressSelector';
+import NotificationBell from '../common/NotificationBell';
 
 interface EnhancedHeaderProps {
   user: UserData;
@@ -75,77 +77,33 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({ user }) => {
           {/* Search bar */}
           <div className="hidden md:flex flex-1 max-w-xl mx-8">
             <form onSubmit={handleSearch} className="w-full relative">
-              <div className="flex items-center border rounded-lg overflow-hidden">
-                {/* Location selector */}
-                <div className="relative">
+              <div className="flex items-center justify-center">                
+                <div className="flex items-center border rounded-xl overflow-hidden ml-1 relative">
+                  {/* Address selector*/}
+                  <div className="absolute left-0 top-0 h-full flex items-center">
+                   <AddressSelector className="px-3 py-2" />
+                  </div>
+                  {/* Search input */}
+                  <input
+                    type="text"
+                    placeholder="Search for services..."
+                    className="flex-1 pl-40 px-4 py-2 focus:outline-none"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                  />
+                  
+                  {/* Search button */}
                   <button 
-                    type="button"
-                    onClick={toggleLocationDropdown}
-                    className="flex items-center px-3 py-2 bg-gray-50 border-r hover:bg-gray-100 transition-colors"
+                    type="submit" 
+                    className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors overflow-hidden"
                   >
-                    <svg className="w-5 h-5 text-gray-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                    <span className="truncate max-w-[100px]">{location}</span>
-                    <svg className={`w-4 h-4 ml-1 transition-transform ${isLocationDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                    <svg className="w-5 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                   </button>
-                  
-                  {isLocationDropdownOpen && (
-                    <div className="absolute left-0 mt-1 w-64 bg-white rounded-md shadow-lg py-1 z-10">
-                      <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-medium text-gray-700">Popular locations</p>
-                      </div>
-                      {popularLocations.map((loc) => (
-                        <button
-                          key={loc}
-                          onClick={() => selectLocation(loc)}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          {loc}
-                        </button>
-                      ))}
-                      <div className="px-4 py-2 border-t">
-                        <button 
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                          onClick={() => {
-                            // In a real app, this would open a modal to get the user's current location
-                            selectLocation('Current Location');
-                          }}
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                          </svg>
-                          Use my current location
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
-                
-                {/* Search input */}
-                <input
-                  type="text"
-                  placeholder="Search for services..."
-                  className="flex-1 px-4 py-2 focus:outline-none"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                />
-                
-                {/* Search button */}
-                <button 
-                  type="submit" 
-                  className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                  </svg>
-                </button>
               </div>
               
               {/* Search suggestions - would be populated from API in a real app */}
@@ -176,12 +134,15 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({ user }) => {
               </svg>
             </Link>
             
-            <Link href="/notifications" className="text-gray-600 hover:text-black relative">
+            <Link href="/chats" className="text-gray-600 hover:text-black relative" title="My Chats">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
               </svg>
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
             </Link>
+            
+            <div className='mt-1'>
+              <NotificationBell />
+            </div>
             
             <div className="relative">
               <button 
@@ -222,7 +183,7 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({ user }) => {
                     Profile
                   </Link>
                   <Link 
-                    href="/bookings" 
+                    href="/dashboard/user/bookings" 
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
                     My Bookings
@@ -281,24 +242,37 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({ user }) => {
         </nav>
       </div>
       
-      {/* Mobile search bar - only visible on small screens */}
+      {/* Mobile address selector and search bar - only visible on small screens */}
       <div className="md:hidden px-4 pb-4">
-        <form onSubmit={handleSearch} className="flex items-center border rounded-lg overflow-hidden">
-          <input
-            type="text"
-            placeholder="Search for services..."
-            className="flex-1 px-4 py-2 focus:outline-none"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <button 
-            type="submit" 
-            className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-          </button>
+        {/* Address selector for mobile - outside the form */}
+        <div className="mb-4">
+          <div className="flex justify-center">
+            <AddressSelector />
+          </div>
+          <div className="text-xs text-gray-500 mt-1 text-center">
+            Click on "Add address" to add a new delivery address
+          </div>
+        </div>
+        
+        {/* Search form */}
+        <form onSubmit={handleSearch}>
+          <div className="flex items-center border rounded-lg overflow-hidden">
+            <input
+              type="text"
+              placeholder="Search for services..."
+              className="flex-1 px-4 py-2 focus:outline-none"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <button 
+              type="submit" 
+              className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"
+            >
+              <svg className="w-5 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </button>
+          </div>
         </form>
       </div>
     </header>

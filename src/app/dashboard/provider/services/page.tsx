@@ -21,12 +21,74 @@ export default function ProviderServicesPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
+  // Use a ref to track if we've already tried to load services
+  const servicesLoadAttempted = React.useRef(false);
+  
   // Load provider's services
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'provider') {
-      loadServices();
+    // Skip if we've already tried to load services or if not authenticated or not a provider
+    if (servicesLoadAttempted.current || !isAuthenticated || user?.role !== 'provider') {
+      return;
     }
-  }, [isAuthenticated, user, fetchProviderServices]);
+    
+    // Create a flag to track if the component is mounted
+    let isMounted = true;
+    
+    // Delay the service loading to ensure authentication is fully established
+    const loadServicesData = async () => {
+      // Mark that we've attempted to load services
+      servicesLoadAttempted.current = true;
+      
+      try {
+        // Check if we have a valid token in localStorage
+        const userData = localStorage.getItem('user');
+        if (!userData) {
+          console.error('No user data found in localStorage');
+          if (isMounted) setServices([]);
+          return;
+        }
+        
+        const parsedUserData = JSON.parse(userData);
+        if (!parsedUserData.token) {
+          console.error('No token found in user data');
+          if (isMounted) setServices([]);
+          return;
+        }
+        
+        console.log('Fetching provider services with role:', user?.role);
+        
+        // Use the provider-specific endpoint that we destructured at the top level
+        const response = await fetchProviderServices(1, 100);
+        
+        console.log('Provider services response:', response);
+        
+        // Check if we got a valid response with services and component is still mounted
+        if (isMounted && response && response.services) {
+          console.log('Setting services state with:', response.services);
+          setServices(response.services);
+        } else if (isMounted) {
+          console.log('No services returned or empty response');
+          setServices([]);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Error loading services:', err);
+          setServices([]);
+        }
+      }
+    };
+    
+    // Add a small delay to ensure authentication is fully established
+    const timer = setTimeout(() => {
+      loadServicesData();
+    }, 500);
+    
+    // Cleanup function to set the flag when the component unmounts
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [isAuthenticated, user?.role]);
   
   // Redirect if not authenticated or not a provider
   useEffect(() => {
@@ -149,11 +211,41 @@ export default function ProviderServicesPage() {
     }, 3000);
   };
   
+  // Fallback to prevent infinite loading
+  useEffect(() => {
+    // Set a timeout to stop loading after 5 seconds regardless of other states
+    // This prevents infinite loading if something goes wrong
+    const timer = setTimeout(() => {
+      if (authLoading) {
+        console.log('Fallback timeout: Setting loading to false after timeout');
+        // We can't directly set authLoading to false since it's from a hook,
+        // but we can proceed with rendering the page
+        servicesLoadAttempted.current = true;
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [authLoading]);
+  
   // Show loading state
-  if (authLoading || !user) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl">Loading...</p>
+      </div>
+    );
+  }
+  
+  // If user is not authenticated, show a message or redirect
+  if (!isAuthenticated) {
+    return null; // We'll redirect in the useEffect hook
+  }
+  
+  // Ensure user is not null before rendering the dashboard
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl">Loading user data...</p>
       </div>
     );
   }

@@ -16,116 +16,15 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   onSelectTimeSlot,
   selectedTimeSlotId
 }) => {
-  const { fetchServiceTimeSlots, isLoading, error } = useTimeSlots();
+  // Hooks from useTimeSlots
+  const { fetchServiceTimeSlots, isLoading: apiLoading, error: apiError } = useTimeSlots();
+  
+  // Component state
   const [groupedTimeSlots, setGroupedTimeSlots] = useState<GroupedTimeSlots>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  
-  // Load time slots for the service
-  useEffect(() => {
-    const loadTimeSlots = async () => {
-      try {
-        // Get time slots for the next 30 days
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 30);
-        
-        // Add a timeout to prevent hanging
-        const timeoutPromise = new Promise<{groupedSlots: GroupedTimeSlots}>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timed out')), 5000);
-        });
-        
-        // Race the fetch against the timeout
-        const response = await Promise.race([
-          fetchServiceTimeSlots(serviceId, {
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0]
-          }),
-          timeoutPromise
-        ]);
-        
-        if (response && response.groupedSlots) {
-          setGroupedTimeSlots(response.groupedSlots);
-          
-          // Set selected date to the first available date if there are time slots
-          const availableDates = Object.keys(response.groupedSlots);
-          if (availableDates.length > 0) {
-            setSelectedDate(availableDates[0]);
-          }
-        } else {
-          // Handle empty response
-          console.error('No time slots returned from server');
-        }
-      } catch (err: any) {
-        console.error('Error loading time slots:', err);
-        
-        // Always create mock time slots when there's an error
-        console.log('Creating mock time slots due to error:', err.message);
-        const mockSlots = createMockTimeSlots(serviceId);
-        setGroupedTimeSlots(mockSlots);
-        
-        // Set selected date to the first available date
-        const availableDates = Object.keys(mockSlots);
-        if (availableDates.length > 0) {
-          setSelectedDate(availableDates[0]);
-        }
-      }
-    };
-    
-    loadTimeSlots();
-  }, [serviceId, fetchServiceTimeSlots]);
-  
-  // Create mock time slots for testing
-  const createMockTimeSlots = (serviceId: string): GroupedTimeSlots => {
-    const mockSlots: GroupedTimeSlots = {};
-    const today = new Date();
-    
-    // Create time slots for the next 7 days
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() + i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      // Create 3 time slots for each day
-      mockSlots[dateStr] = [
-        {
-          _id: `mock-${dateStr}-1`,
-          providerId: 'mock-provider',
-          serviceId,
-          date: dateStr,
-          startTime: '09:00',
-          endTime: '10:00',
-          isBooked: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          _id: `mock-${dateStr}-2`,
-          providerId: 'mock-provider',
-          serviceId,
-          date: dateStr,
-          startTime: '13:00',
-          endTime: '14:00',
-          isBooked: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          _id: `mock-${dateStr}-3`,
-          providerId: 'mock-provider',
-          serviceId,
-          date: dateStr,
-          startTime: '17:00',
-          endTime: '18:00',
-          isBooked: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-    }
-    
-    return mockSlots;
-  };
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -149,7 +48,6 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   const getDatesInMonth = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     
     const dates = [];
@@ -163,6 +61,8 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
       // Only include dates from today onwards
       if (date >= today) {
         const dateStr = date.toISOString().split('T')[0];
+        
+        // Check if this date has time slots
         const hasTimeSlots = groupedTimeSlots[dateStr] && groupedTimeSlots[dateStr].length > 0;
         
         dates.push({
@@ -207,14 +107,116 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
     onSelectTimeSlot(timeSlot);
   };
   
+  // Ref to track if we've already made the API call for this service
+  const apiCallMadeRef = React.useRef<string | null>(null);
+  
+  // Load time slots for the service
+  useEffect(() => {
+    // Skip if we've already made the API call for this service
+    if (apiCallMadeRef.current === serviceId) {
+      console.log('API call already made for this service, skipping');
+      return;
+    }
+    
+    // Set the flag immediately to prevent multiple calls
+    apiCallMadeRef.current = serviceId;
+    
+    const loadTimeSlots = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        console.log('Loading time slots for service:', serviceId);
+        
+        // Make the API call to get time slots
+        console.log('Making API call to get time slots');
+        const response = await fetchServiceTimeSlots(serviceId, {
+          startDate: '2025-05-07',
+          endDate: '2025-06-06'
+        });
+        
+        console.log('API response received:', response);
+        
+        // Extract the groupedSlots from the API response
+        const groupedSlots = response.groupedSlots as any;
+        const slotsCount = Object.keys(groupedSlots).length;
+        console.log(`Time slots in response: ${slotsCount}`);
+        
+        if (slotsCount > 0) {
+          const firstDate = Object.keys(groupedSlots)[0];
+          console.log('First date in response:', firstDate);
+          
+          // Process the API response to match the expected format
+          const processedSlots: GroupedTimeSlots = {};
+          
+          // Process each date in the response
+          Object.keys(groupedSlots).forEach(date => {
+            processedSlots[date] = groupedSlots[date].map((slot: any) => {
+              // Extract providerId as string if it's an object
+              const providerId = typeof slot.providerId === 'object' && slot.providerId !== null
+                ? slot.providerId._id
+                : slot.providerId;
+              
+              // Return a new object with the correct format
+              return {
+                _id: slot._id,
+                providerId,
+                serviceId: slot.serviceId,
+                date: slot.date,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                isBooked: slot.isBooked,
+                createdAt: slot.createdAt,
+                updatedAt: slot.updatedAt
+              };
+            });
+          });
+          
+          console.log('Processed time slots:', processedSlots);
+          
+          // Update all state at once to minimize re-renders
+          const firstAvailableDate = new Date(firstDate);
+          const newCurrentMonth = new Date(firstAvailableDate.getFullYear(), firstAvailableDate.getMonth(), 1);
+          
+          // Set all state at once
+          setGroupedTimeSlots(processedSlots);
+          setSelectedDate(firstDate);
+          setCurrentMonth(newCurrentMonth);
+        } else {
+          console.log('No time slots available');
+          setGroupedTimeSlots({});
+          setSelectedDate(null);
+        }
+      } catch (err) {
+        console.error('Error loading time slots:', err);
+        setError('Failed to load time slots');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadTimeSlots();
+  }, [serviceId, fetchServiceTimeSlots]);
+  
+  // Get dates and available dates for rendering
+  const dates = getDatesInMonth();
+  const availableDates = Object.keys(groupedTimeSlots);
+  
+  // Debug log to see what's happening
+  console.log('Rendering with groupedTimeSlots:', groupedTimeSlots);
+  console.log('Available dates:', availableDates);
+  
+  // Show loading state if we're still loading time slots
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <span className="ml-2">Loading available time slots...</span>
       </div>
     );
   }
   
+  // Show error if there is one
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
@@ -223,10 +225,8 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
     );
   }
   
-  const dates = getDatesInMonth();
-  const availableDates = Object.keys(groupedTimeSlots);
-  
-  if (availableDates.length === 0) {
+  // If after all attempts we still have no time slots, show a message
+  if (!isLoading && availableDates.length === 0) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-md">
         No available time slots for this service. Please check back later.

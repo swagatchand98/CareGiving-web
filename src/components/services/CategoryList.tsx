@@ -19,24 +19,13 @@ const CategoryList: React.FC<CategoryListProps> = ({
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   
   useEffect(() => {
-    const loadCategories = async (retryCount = 0) => {
+    const loadCategories = async () => {
       try {
-        const response = await fetchServiceCategories(retryCount);
+        const response = await fetchServiceCategories();
         setCategories(response.categories);
       } catch (err: any) {
         console.error('Error loading categories:', err);
-        
-        // Handle rate limiting with exponential backoff
-        if (err?.response?.status === 429 && retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-          console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-          
-          // Wait for the delay period
-          await new Promise(resolve => setTimeout(resolve, delay));
-          
-          // Retry with exponential backoff
-          return loadCategories(retryCount + 1);
-        }
+        // Error handling is now done in the hook
       }
     };
     

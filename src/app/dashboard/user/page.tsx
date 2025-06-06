@@ -11,6 +11,11 @@ import Footer from '@/components/layout/Footer';
 import Button from '@/components/common/Button';
 import UserBookingsList from '@/components/services/UserBookingsList';
 import { Service, ServiceCategory } from '@/services/serviceService';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import InteractiveSlider from '@/components/user/dashboard/interactiveSlider';
+import { TextField } from '@mui/material';
 
 export default function UserDashboard() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
@@ -35,6 +40,7 @@ export default function UserDashboard() {
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [date, setDate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Redirect if not authenticated
@@ -44,49 +50,127 @@ export default function UserDashboard() {
     }
   }, [authLoading, isAuthenticated, router]);
   
+  // Use a ref to track if we've already tried to load categories
+  const categoriesLoadAttempted = React.useRef(false);
+  
   // Fetch service categories
   useEffect(() => {
+    // Skip if we've already tried to load categories or if not authenticated
+    if (categoriesLoadAttempted.current || !isAuthenticated) {
+      return;
+    }
+    
+    // Create a flag to track if the component is mounted
+    let isMounted = true;
+    
     const loadCategories = async () => {
+      // Mark that we've attempted to load categories
+      categoriesLoadAttempted.current = true;
+      
       try {
+        console.log('Fetching service categories...');
         const response = await fetchServiceCategories();
-        if (response && response.categories) {
+        console.log('Service categories response:', response);
+        
+        // Only update state if the component is still mounted
+        if (isMounted && response && response.categories) {
+          console.log('Setting categories state with:', response.categories);
           setCategories(response.categories);
         }
       } catch (err: any) {
-        console.error('Error loading categories:', err);
-        setError(err.message || 'Failed to load service categories');
+        // Only update state if the component is still mounted
+        if (isMounted) {
+          console.error('Error loading categories:', err);
+          setError(err.message || 'Failed to load service categories');
+        }
       }
     };
     
-    if (isAuthenticated) {
-      loadCategories();
-    }
-  }, [isAuthenticated, fetchServiceCategories]);
+    loadCategories();
+    
+    // Cleanup function to set the flag when the component unmounts
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
+  
+  // Use a ref to track if we've already tried to load services
+  const servicesLoadAttempted = React.useRef(false);
   
   // Fetch popular services
   useEffect(() => {
+    // Skip if we've already tried to load services or if not authenticated
+    if (servicesLoadAttempted.current || !isAuthenticated) {
+      return;
+    }
+    
+    // Create a flag to track if the component is mounted
+    let isMounted = true;
+    
     const loadServices = async () => {
+      // Mark that we've attempted to load services
+      servicesLoadAttempted.current = true;
+      
       try {
+        console.log('Fetching popular services...');
         // Get popular services (we'll just get the first 4 services for now)
         const response = await fetchServices(1, 4);
-        if (response && response.services) {
+        console.log('Services response:', response);
+        
+        // Only update state if the component is still mounted
+        if (isMounted && response && response.services) {
+          console.log('Setting services state with:', response.services);
           setServices(response.services);
         }
       } catch (err: any) {
-        console.error('Error loading services:', err);
-        setError(err.message || 'Failed to load services');
+        // Only update state if the component is still mounted
+        if (isMounted) {
+          console.error('Error loading services:', err);
+          setError(err.message || 'Failed to load services');
+        }
       } finally {
-        setIsLoading(false);
+        // Only update state if the component is still mounted
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     
-    if (isAuthenticated) {
-      loadServices();
-    }
-  }, [isAuthenticated, fetchServices]);
+    loadServices();
+    
+    // Cleanup function to set the flag when the component unmounts
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
 
+  // Set isLoading to false when authentication is complete
+  useEffect(() => {
+    if (!authLoading) {
+      // If authentication is complete and user is not authenticated, 
+      // we should stop loading since we'll redirect
+      if (!isAuthenticated) {
+        setIsLoading(false);
+      }
+    }
+  }, [authLoading, isAuthenticated]);
+  
+  // Fallback to prevent infinite loading
+  useEffect(() => {
+    // Set a timeout to stop loading after 5 seconds regardless of other states
+    // This prevents infinite loading if something goes wrong
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        console.log('Fallback timeout: Setting isLoading to false after timeout');
+        setIsLoading(false);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+  
   // Show loading state
-  if (isLoading || !user) {
+  if ((isLoading && authLoading) || (!authLoading && isAuthenticated && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-xl">Loading...</p>
@@ -94,14 +178,27 @@ export default function UserDashboard() {
     );
   }
 
+  // If user is not authenticated, show a message or redirect
+  if (!isAuthenticated) {
+    return null; // We'll redirect in the useEffect hook
+  }
+  
+  // Ensure user is not null before rendering the dashboard
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl">Loading user data...</p>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <EnhancedHeader user={user} />
-      
-      <main className="flex-grow container mx-auto px-4 py-8">
+
         {/* Welcome Section */}
-        <section className="mb-10">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <section className='flex-grow container mx-auto px-4 pt-8'>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
             <div>
               <h1 className="text-3xl font-bold mb-2">Welcome back, {user.name}!</h1>
               <p className="text-gray-600">Find and book the care services you need.</p>
@@ -112,10 +209,17 @@ export default function UserDashboard() {
               </Link>
             </div>
           </div>
-          
+        </section>
+
+      <div className='-ml-15'>
+        <InteractiveSlider/>
+      </div>
+      
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <section className="mb-10">  
           {/* Quick Actions */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-            <Link href="/bookings" className="bg-white rounded-lg shadow-sm p-4 flex flex-col items-center text-center hover:shadow-md transition-shadow">
+            <Link href="/dashboard/user/bookings" className="bg-white rounded-lg shadow-sm p-4 flex flex-col items-center text-center hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -163,46 +267,33 @@ export default function UserDashboard() {
                   Now you can book services at specific times that work for you! Browse available time slots from our providers and schedule your care services with precision.
                 </p>
                 <Link href="/services/browse">
-                  <Button className="bg-white text-green-600 hover:bg-green-50 px-6 py-2">
+                  <div className="bg-white text-green-600 hover:bg-green-50 px-6 py-2 size-fit rounded-md text-center font-medium transition-colors">
                     Try It Now
-                  </Button>
+                  </div>
                 </Link>
               </div>
-              <div className="flex-shrink-0">
-                <div className="bg-white rounded-lg p-4 shadow-lg">
-                  <div className="w-48 h-32 flex flex-col">
-                    <div className="bg-green-100 text-green-800 text-center py-1 font-medium">April 2025</div>
-                    <div className="grid grid-cols-7 gap-1 text-xs text-center">
-                      <div className="py-1">Su</div>
-                      <div className="py-1">Mo</div>
-                      <div className="py-1">Tu</div>
-                      <div className="py-1">We</div>
-                      <div className="py-1">Th</div>
-                      <div className="py-1">Fr</div>
-                      <div className="py-1">Sa</div>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 text-xs text-center flex-1">
-                      {Array.from({ length: 30 }).map((_, i) => (
-                        <div key={i} className={`py-1 ${i === 15 ? 'bg-green-500 text-white rounded-full' : ''}`}>
-                          {i + 1}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              <div className='h-50 w-50'>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DateCalendar
+                    value={date}
+                    onChange={(newValue) => {
+                      setDate(newValue);
+                    }}
+                    disablePast
+                    views={['day']}
+                    sx={{
+                    transform: 'scale(0.6)',
+                    transformOrigin: 'top left',
+                    width: 'fit-content',
+                    bgcolor: '#f5f5f5',        // background color
+                    color: '#1a237e',          // base text color
+                    borderRadius: 2,
+                    p: 1,
+                  }}
+                  />
+                </LocalizationProvider>
               </div>
             </div>
-          </div>
-        </section>
-        
-        {/* Upcoming Bookings Section */}
-        <section className="mb-10">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Your Bookings</h2>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <UserBookingsList limit={3} showViewAll={true} />
           </div>
         </section>
         
@@ -327,31 +418,15 @@ export default function UserDashboard() {
             </Link>
           </div>
         </section>
-        
-        {/* Become a Provider CTA */}
+
+        {/* Upcoming Bookings Section */}
         <section className="mb-10">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-700 rounded-lg shadow-md p-8 text-white">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-6 md:mb-0 md:mr-8">
-                <h2 className="text-2xl font-bold mb-2">Become a Caregiver</h2>
-                <p className="text-blue-100 mb-4">
-                  Join our network of professional caregivers and grow your business. 
-                  We connect you with clients who need your specialized care services.
-                </p>
-                <Link href="/auth/provider-register">
-                  <Button className="bg-white text-blue-600 hover:bg-blue-50 px-6 py-2">
-                    Register as Provider
-                  </Button>
-                </Link>
-              </div>
-              <div className="w-40 h-40 rounded-full overflow-hidden">
-                <img 
-                  src="/images/placeholders/caregiver.jpg.svg" 
-                  alt="Become a Caregiver" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Your Bookings</h2>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <UserBookingsList limit={3} showViewAll={true} />
           </div>
         </section>
       </main>

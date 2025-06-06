@@ -95,7 +95,13 @@ const RegisterForm: React.FC = () => {
       // Combine first and last name for the register function
       const fullName = `${formData.firstName} ${formData.lastName}`;
       await register(fullName, formData.email, formData.password);
-      router.push('/dashboard');
+      
+      // After registration, the user data is stored in the AuthContext
+      // We can access it from there to determine the role
+      // The register function in AuthContext already sets the user state
+      
+      // After registration, redirect to the user dashboard
+      router.push('/dashboard/user');
     } catch (error: any) {
       console.error('Registration error:', error);
       
@@ -130,8 +136,19 @@ const RegisterForm: React.FC = () => {
   const handleGoogleSignUp = async () => {
     setIsSubmitting(true);
     try {
-      await loginWithGoogle();
-      router.push('/dashboard');
+      const userData = await loginWithGoogle();
+      
+      // Ensure user role is properly set
+      const userRole = userData.role || 'user';
+      
+      // Redirect based on user role
+      if (userRole === 'admin') {
+        router.push('/dashboard/admin');
+      } else if (userRole === 'provider') {
+        router.push('/dashboard/provider');
+      } else {
+        router.push('/dashboard/user');
+      }
     } catch (error: any) {
       console.error('Google sign-up error:', error);
       setErrors({

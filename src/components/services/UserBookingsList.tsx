@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import useBooking from '@/hooks/useBooking';
 import { Booking } from '@/services/bookingService';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 interface UserBookingsListProps {
   limit?: number;
@@ -201,6 +202,17 @@ const UserBookingsList: React.FC<UserBookingsListProps> = ({
                 View Details
               </button>
               
+              {/* Chat button - only show for confirmed or in-progress bookings */}
+              {(booking.status === 'confirmed' || booking.status === 'in-progress') && (
+                <button
+                  onClick={() => router.push(`/booking/${booking._id}#chat`)}
+                  className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors flex items-center"
+                >
+                  <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />
+                  Chat
+                </button>
+              )}
+              
               {(booking.status === 'pending' || booking.status === 'confirmed') && (
                 <button
                   onClick={() => handleCancelBooking(booking._id)}
@@ -265,7 +277,7 @@ const UserBookingsList: React.FC<UserBookingsListProps> = ({
         <div className="text-center mt-6">
           <button
             onClick={() => router.push('/dashboard/user/bookings')}
-            className="text-blue-600 hover:text-blue-800 hover:underline"
+            className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
           >
             View All Bookings
           </button>

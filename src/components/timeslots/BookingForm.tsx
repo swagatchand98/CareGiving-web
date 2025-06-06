@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTimeSlots } from '@/hooks/useTimeSlots';
+import { useAddress } from '@/hooks/useAddress';
 import { TimeSlot, BookTimeSlotData } from '@/services/timeSlotService';
+import { Address } from '@/services/addressService';
 import TimeSlotSelector from './TimeSlotSelector';
+import AddressSelector from '@/components/address/AddressSelector';
 import Button from '@/components/common/Button';
 
 interface BookingFormProps {
@@ -24,8 +27,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
 }) => {
   const router = useRouter();
   const { bookAvailableTimeSlot, error: apiError } = useTimeSlots();
+  const { defaultAddress, addresses, fetchAddresses, isLoading: addressLoading } = useAddress();
   
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -40,8 +45,56 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(apiError);
   
+  // Load addresses when component mounts
+  useEffect(() => {
+    fetchAddresses();
+  }, [fetchAddresses]);
+  
+  // Set default address when available
+  useEffect(() => {
+    if (defaultAddress) {
+      setSelectedAddress(defaultAddress);
+      setAddress({
+        street: defaultAddress.street,
+        city: defaultAddress.city,
+        state: defaultAddress.state,
+        zipCode: defaultAddress.zipCode,
+        country: defaultAddress.country || 'United States'
+      });
+    }
+  }, [defaultAddress]);
+  
+  // Update address form when selected address changes
+  useEffect(() => {
+    if (selectedAddress) {
+      setAddress({
+        street: selectedAddress.street,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        zipCode: selectedAddress.zipCode,
+        country: selectedAddress.country || 'United States'
+      });
+      
+      // Clear any address-related errors
+      setFormErrors(prev => ({
+        ...prev,
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: ''
+      }));
+    }
+  }, [selectedAddress]);
+  
+  // Handle address selection from AddressSelector
+  const handleAddressSelect = (address: Address) => {
+    setSelectedAddress(address);
+  };
+  
   // Handle time slot selection
   const handleTimeSlotSelect = (timeSlot: TimeSlot) => {
+    console.log('Time slot selected:', timeSlot);
     setSelectedTimeSlot(timeSlot);
   };
   
@@ -148,16 +201,16 @@ const BookingForm: React.FC<BookingFormProps> = ({
       ]);
       
       // Show success message
-      setSuccessMessage('Booking successful! Redirecting to booking details...');
+      setSuccessMessage('Booking created! Redirecting to payment page...');
       
       // Call onSuccess callback if provided
       if (onSuccess && bookingResponse && bookingResponse.booking) {
         onSuccess(bookingResponse.booking._id);
       } else if (bookingResponse && bookingResponse.booking) {
-        // Redirect to booking details page after 2 seconds
+        // Redirect to payment page after 1.5 seconds
         setTimeout(() => {
-          router.push(`/booking/${bookingResponse.booking._id}`);
-        }, 2000);
+          router.push(`/payment/${bookingResponse.booking._id}`);
+        }, 1500);
       } else {
         // Handle case where response is valid but doesn't have booking data
         setError('Booking was successful but booking details are missing');
@@ -272,6 +325,53 @@ const BookingForm: React.FC<BookingFormProps> = ({
             {/* Address Fields */}
             <div>
               <h3 className="font-medium mb-3">Service Address</h3>
+              
+              {/* Address Selector */}
+              <div className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-sm text-gray-600 mb-2">Select from your saved addresses or enter a new address below:</p>
+                <div className="custom-address-selector">
+                  {/* Custom implementation of AddressSelector that updates the form */}
+                  {addresses.length > 0 ? (
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">Saved Addresses</label>
+                      <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                        {addresses.map((addr) => (
+                          <div
+                            key={addr._id}
+                            onClick={() => setSelectedAddress(addr)}
+                            className={`p-3 border rounded-md cursor-pointer hover:bg-gray-50 ${
+                              selectedAddress?._id === addr._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                            }`}
+                          >
+                            <div className="flex items-start">
+                              <div className="flex-1">
+                                <div className="font-medium">
+                                  {addr.name} <span className="text-xs font-normal text-gray-500 ml-1">({addr.type})</span>
+                                </div>
+                                <div className="text-sm text-gray-600">{addr.street}</div>
+                                <div className="text-sm text-gray-600">
+                                  {addr.city}, {addr.state} {addr.zipCode}
+                                </div>
+                                {addr.isDefault && (
+                                  <span className="inline-block mt-1 text-xs font-medium text-blue-600">Default</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-3">
+                      <p className="text-gray-500 mb-2">No saved addresses found</p>
+                    </div>
+                  )}
+                  
+                  <div className="mt-2">
+                    <AddressSelector />
+                  </div>
+                </div>
+              </div>
               
               {/* Street */}
               <div className="mb-3">

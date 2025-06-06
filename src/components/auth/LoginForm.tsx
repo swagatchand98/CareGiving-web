@@ -73,10 +73,12 @@ const LoginForm: React.FC = () => {
       const userRole = userData.role || 'user';
       
       // Redirect based on user role
-      if (userRole === 'provider') {
+      if (userRole === 'admin') {
+        router.push('/dashboard/admin');
+      } else if (userRole === 'provider') {
         router.push('/dashboard/provider');
       } else {
-        router.push('/dashboard');
+        router.push('/dashboard/user');
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -121,10 +123,12 @@ const LoginForm: React.FC = () => {
       const userRole = userData.role || 'user';
       
       // Redirect based on user role
-      if (userRole === 'provider') {
+      if (userRole === 'admin') {
+        router.push('/dashboard/admin');
+      } else if (userRole === 'provider') {
         router.push('/dashboard/provider');
       } else {
-        router.push('/dashboard');
+        router.push('/dashboard/user');
       }
     } catch (error: any) {
       console.error('Google sign-in error:', error);
@@ -145,10 +149,12 @@ const LoginForm: React.FC = () => {
       const userRole = userData.role || 'user';
       
       // Redirect based on user role
-      if (userRole === 'provider') {
+      if (userRole === 'admin') {
+        router.push('/dashboard/admin');
+      } else if (userRole === 'provider') {
         router.push('/dashboard/provider');
       } else {
-        router.push('/dashboard');
+        router.push('/dashboard/user');
       }
     } catch (error: any) {
       console.error('Demo login error:', error);

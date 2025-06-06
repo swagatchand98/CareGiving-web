@@ -33,51 +33,125 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
+  // Use a ref to track if we've already tried to load services
+  const servicesLoadAttempted = React.useRef(false);
+  
   // Load provider's services
   useEffect(() => {
+    // Skip if we've already tried to load services
+    if (servicesLoadAttempted.current) {
+      return;
+    }
+    
+    // Create a flag to track if the component is mounted
+    let isMounted = true;
+    
     const loadServices = async () => {
+      // Mark that we've attempted to load services
+      servicesLoadAttempted.current = true;
+      
       try {
+        // Check if we have a valid token in localStorage
+        const userData = localStorage.getItem('user');
+        if (!userData) {
+          console.error('No user data found in localStorage');
+          if (isMounted) setErrorMessage('Authentication error. Please log in again.');
+          return;
+        }
+        
+        const parsedUserData = JSON.parse(userData);
+        if (!parsedUserData.token) {
+          console.error('No token found in user data');
+          if (isMounted) setErrorMessage('Authentication error. Please log in again.');
+          return;
+        }
+        
         console.log('Loading services for provider:', providerId);
         const response = await fetchProviderServices(1, 100);
         
         // Check if we got a valid response with services
         if (!response || !response.services || response.services.length === 0) {
           console.log('No services returned or empty response');
-          setServices([]);
+          if (isMounted) setServices([]);
           return;
         }
         
         console.log('Provider services:', response.services);
-        setServices(response.services);
-        
-        // Set selected service to the first service if available
-        if (response.services.length > 0) {
-          setSelectedServiceId(response.services[0]._id);
+        if (isMounted) {
+          setServices(response.services);
+          
+          // Set selected service to the first service if available
+          if (response.services.length > 0) {
+            setSelectedServiceId(response.services[0]._id);
+          }
         }
       } catch (err: any) {
         console.error('Error loading services:', err);
-        setErrorMessage('Unable to load services. Please try again later.');
+        if (isMounted) setErrorMessage('Unable to load services. Please try again later.');
       }
     };
     
-    loadServices();
-  }, [providerId, fetchProviderServices]);
+    // Add a small delay to ensure authentication is fully established
+    const timer = setTimeout(() => {
+      loadServices();
+    }, 500);
+    
+    // Cleanup function to set the flag when the component unmounts
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [providerId]);
+  
+  // Use a ref to track if we've already tried to load time slots
+  const timeSlotsLoadAttempted = React.useRef(false);
   
   // Load provider's time slots
   useEffect(() => {
     if (selectedServiceId) {
+      // Reset the load attempt flag when service changes
+      timeSlotsLoadAttempted.current = false;
       loadTimeSlots();
     }
   }, [selectedServiceId]);
   
-  const loadTimeSlots = async (retryCount = 0) => {
+  const loadTimeSlots = async () => {
+    // Skip if we've already tried to load time slots for this service
+    if (timeSlotsLoadAttempted.current) {
+      return;
+    }
+    
+    // Create a flag to track if the component is mounted
+    let isMounted = true;
+    
     try {
+      // Mark that we've attempted to load time slots
+      timeSlotsLoadAttempted.current = true;
+      
+      // Check if we have a valid token in localStorage
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        console.error('No user data found in localStorage');
+        if (isMounted) setErrorMessage('Authentication error. Please log in again.');
+        return;
+      }
+      
+      const parsedUserData = JSON.parse(userData);
+      if (!parsedUserData.token) {
+        console.error('No token found in user data');
+        if (isMounted) setErrorMessage('Authentication error. Please log in again.');
+        return;
+      }
+      
       console.log('Loading time slots for service:', selectedServiceId);
       
       // Get time slots for the next 30 days
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
+      
+      // Add a small delay to ensure authentication is fully established
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const response = await fetchProviderTimeSlots({
         serviceId: selectedServiceId,
@@ -86,26 +160,19 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
       });
       
       console.log('Time slots loaded:', response.groupedSlots);
-      setGroupedTimeSlots(response.groupedSlots);
-      setErrorMessage(null); // Clear any previous error messages
+      if (isMounted) {
+        setGroupedTimeSlots(response.groupedSlots);
+        setErrorMessage(null); // Clear any previous error messages
+      }
     } catch (err: any) {
       console.error('Error loading time slots:', err);
-      
-      // Handle timeout or rate limit errors with retry logic
-      if ((err.message?.includes('timeout') || err.response?.status === 429) && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.log(`Retrying time slots in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with exponential backoff
-        await loadTimeSlots(retryCount + 1);
-      } else if (retryCount >= 3) {
-        // After 3 retries, show a more user-friendly error
-        setErrorMessage('Unable to load time slots. Please try again later.');
-      }
+      if (isMounted) setErrorMessage('Unable to load time slots. Please try again later.');
     }
+    
+    // Return a cleanup function
+    return () => {
+      isMounted = false;
+    };
   };
   
   // Format date for display
@@ -154,7 +221,7 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
   };
   
   // Create time slot
-  const handleCreateTimeSlot = async (retryCount = 0) => {
+  const handleCreateTimeSlot = async () => {
     if (!selectedServiceId) {
       setErrorMessage('Please select a service');
       return;
@@ -196,6 +263,10 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
       };
       
       console.log('Creating time slot:', data);
+      
+      // Add a small delay to ensure authentication is fully established
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       await createNewTimeSlots(data);
       console.log('Time slot created successfully');
       
@@ -216,32 +287,21 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
       }, 3000);
     } catch (err: any) {
       console.error('Error creating time slot:', err);
-      
-      // Handle timeout or rate limit errors with retry logic
-      if ((err.message?.includes('timeout') || err.response?.status === 429) && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-        console.log(`Retrying time slot creation in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with exponential backoff
-        await handleCreateTimeSlot(retryCount + 1);
-      } else {
-        setErrorMessage(err.message || 'Failed to create time slot');
-      }
+      setErrorMessage(err.message || 'Failed to create time slot');
     } finally {
-      if (retryCount === 0) { // Only reset creating state on the initial call or final retry
-        setIsCreating(false);
-      }
+      setIsCreating(false);
     }
   };
   
   // Delete time slot
-  const handleDeleteTimeSlot = async (timeSlotId: string, retryCount = 0) => {
+  const handleDeleteTimeSlot = async (timeSlotId: string) => {
     if (window.confirm('Are you sure you want to delete this time slot?')) {
       try {
         console.log('Deleting time slot:', timeSlotId);
+        
+        // Add a small delay to ensure authentication is fully established
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         await deleteExistingTimeSlot(timeSlotId);
         console.log('Time slot deleted successfully');
         
@@ -258,20 +318,7 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
         }, 3000);
       } catch (err: any) {
         console.error('Error deleting time slot:', err);
-        
-        // Handle timeout or rate limit errors with retry logic
-        if ((err.message?.includes('timeout') || err.response?.status === 429) && retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-          console.log(`Retrying time slot deletion in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-          
-          // Wait for the delay period
-          await new Promise(resolve => setTimeout(resolve, delay));
-          
-          // Retry with exponential backoff
-          await handleDeleteTimeSlot(timeSlotId, retryCount + 1);
-        } else {
-          setErrorMessage(err.message || 'Failed to delete time slot');
-        }
+        setErrorMessage(err.message || 'Failed to delete time slot');
       }
     }
   };
@@ -447,7 +494,7 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
                         
                         {!timeSlot.isBooked && (
                           <button
-                            onClick={() => handleDeleteTimeSlot(timeSlot._id, 0)}
+                            onClick={() => handleDeleteTimeSlot(timeSlot._id)}
                             className="text-red-600 hover:text-red-800"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

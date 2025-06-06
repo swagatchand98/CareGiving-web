@@ -1,6 +1,6 @@
- 'use client';
+'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Service,
@@ -31,6 +31,139 @@ export const useServices = () => {
   // Track if a request is in progress to prevent duplicate calls
   const [isRequestInProgress, setIsRequestInProgress] = useState<{[key: string]: boolean}>({});
   
+  // Cache for service categories
+  const [categoriesCache, setCategoriesCache] = useState<ServiceCategoriesResponse | null>(null);
+  const [categoriesCacheTime, setCategoriesCacheTime] = useState<number | null>(null);
+  const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
+  
+  // Get all service categories with caching and retry logic
+  const fetchServiceCategories = useCallback(async (retryCount = 0): Promise<ServiceCategoriesResponse> => {
+    // Check if we're already loading categories
+    if (isRequestInProgress['categories']) {
+      console.log('Categories request already in progress, waiting...');
+      // Wait for the existing request to complete
+      await new Promise(resolve => {
+        const checkInterval = setInterval(() => {
+          if (!isRequestInProgress['categories']) {
+            clearInterval(checkInterval);
+            resolve(true);
+          }
+        }, 100);
+      });
+      
+      // If we have cached data after waiting, return it
+      if (categoriesCache && categoriesCacheTime && (Date.now() - categoriesCacheTime < CACHE_DURATION)) {
+        return categoriesCache;
+      }
+    }
+    
+    // Check if we have a valid cache
+    if (categoriesCache && categoriesCacheTime && (Date.now() - categoriesCacheTime < CACHE_DURATION)) {
+      console.log('Using cached service categories');
+      return categoriesCache;
+    }
+    
+    setIsCategoriesLoading(true);
+    setError(null);
+    setIsRequestInProgress(prev => ({ ...prev, categories: true }));
+    
+    try {
+      console.log(`Fetching service categories (attempt ${retryCount + 1})`);
+      const response = await getServiceCategories();
+      
+      // Cache the response in state and localStorage
+      const currentTime = Date.now();
+      setCategoriesCache(response);
+      setCategoriesCacheTime(currentTime);
+      
+      // Save to localStorage for persistence across page refreshes
+      try {
+        localStorage.setItem('serviceCategories', JSON.stringify(response));
+        localStorage.setItem('serviceCategoriesTime', currentTime.toString());
+      } catch (storageErr) {
+        console.error('Error saving categories to localStorage:', storageErr);
+        // Continue even if localStorage fails
+      }
+      
+      setIsCategoriesLoading(false);
+      setIsRequestInProgress(prev => ({ ...prev, categories: false }));
+      return response;
+    } catch (err: any) {
+      console.error('Error fetching service categories:', err);
+      
+      // Handle rate limiting with exponential backoff
+      if (err?.response?.status === 429 && retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
+        
+        // Wait for the delay period
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Reset the in-progress flag before retrying
+        setIsRequestInProgress(prev => ({ ...prev, categories: false }));
+        setIsCategoriesLoading(false);
+        
+        // Retry with exponential backoff
+        return fetchServiceCategories(retryCount + 1);
+      }
+      
+      setError(err.message || 'Failed to fetch service categories');
+      setIsCategoriesLoading(false);
+      setIsRequestInProgress(prev => ({ ...prev, categories: false }));
+      throw err;
+    }
+  }, [categoriesCache, categoriesCacheTime, isRequestInProgress]);
+  
+  // Initialize categories cache on mount - this runs only once
+  useEffect(() => {
+    // Try to load categories from localStorage first
+    try {
+      const cachedData = localStorage.getItem('serviceCategories');
+      const cachedTime = localStorage.getItem('serviceCategoriesTime');
+      
+      if (cachedData && cachedTime) {
+        const parsedData = JSON.parse(cachedData);
+        const parsedTime = parseInt(cachedTime, 10);
+        
+        // Check if cache is still valid
+        if (Date.now() - parsedTime < CACHE_DURATION) {
+          console.log('Loading service categories from localStorage');
+          setCategoriesCache(parsedData);
+          setCategoriesCacheTime(parsedTime);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Error loading categories from localStorage:', err);
+      // Continue with fetching from API if localStorage fails
+    }
+    
+    // If no valid cache in localStorage, fetch from API
+    // But don't block the UI, just fetch in background
+    const initializeCategories = async () => {
+      try {
+        await getServiceCategories().then(response => {
+          // Cache the response in state and localStorage
+          const currentTime = Date.now();
+          setCategoriesCache(response);
+          setCategoriesCacheTime(currentTime);
+          
+          // Save to localStorage for persistence across page refreshes
+          try {
+            localStorage.setItem('serviceCategories', JSON.stringify(response));
+            localStorage.setItem('serviceCategoriesTime', currentTime.toString());
+          } catch (storageErr) {
+            console.error('Error saving categories to localStorage:', storageErr);
+          }
+        });
+      } catch (err) {
+        console.error('Background fetch of service categories failed:', err);
+      }
+    };
+    
+    initializeCategories();
+  }, []);
+  
   // Get all services with pagination and filtering
   const fetchServices = async (
     page: number = 1,
@@ -40,119 +173,36 @@ export const useServices = () => {
       minPrice?: number;
       maxPrice?: number;
       priceType?: string;
-    },
-    retryCount: number = 0
+    }
   ): Promise<ServicesResponse> => {
-    // Create a unique key for this request
-    const requestKey = `services_${page}_${limit}_${JSON.stringify(filters || {})}`;
-    
-    // If this exact request is already in progress, return a promise that resolves when it's done
-    if (isRequestInProgress[requestKey] && retryCount === 0) {
-      console.log('Request already in progress, skipping duplicate call:', requestKey);
-      return new Promise<ServicesResponse>((resolve) => {
-        const checkInterval = setInterval(async () => {
-          if (!isRequestInProgress[requestKey]) {
-            clearInterval(checkInterval);
-            // Return an empty response to avoid TypeScript errors
-            resolve({
-              services: [],
-              results: 0,
-              total: 0,
-              page: page,
-              totalPages: 0
-            });
-          }
-        }, 100);
-      });
-    }
-    
-    // Mark this request as in progress
-    setIsRequestInProgress(prev => ({ ...prev, [requestKey]: true }));
-    
-    // Only set loading state on the initial call, not on retries
-    if (retryCount === 0) {
-      setIsLoading(true);
-      setError(null);
-    }
+    setIsLoading(true);
+    setError(null);
     
     try {
-      const response = await getServices(page, limit, filters, retryCount);
-      
-      // Only update state on the initial call or final successful retry
-      if (retryCount === 0) {
-        setIsLoading(false);
-      }
-      
-      // Mark request as complete
-      setIsRequestInProgress(prev => ({ ...prev, [requestKey]: false }));
-      
+      const response = await getServices(page, limit, filters);
+      setIsLoading(false);
       return response;
     } catch (err: any) {
       console.error('Error fetching services:', err);
-      
-      // Handle rate limiting with exponential backoff
-      if (err?.response?.status === 429 && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with exponential backoff
-        return fetchServices(page, limit, filters, retryCount + 1);
-      }
-      
-      // Only update state on the initial call or final failed retry
-      if (retryCount === 0 || retryCount >= 3) {
-        setError(err.message || 'Failed to fetch services');
-        setIsLoading(false);
-      }
-      
-      // Mark request as complete
-      setIsRequestInProgress(prev => ({ ...prev, [requestKey]: false }));
-      
+      setError(err.message || 'Failed to fetch services');
+      setIsLoading(false);
       throw err;
     }
   };
   
   // Get service by ID
-  const fetchServiceById = async (serviceId: string, retryCount: number = 0) => {
-    // Only set loading state on the initial call, not on retries
-    if (retryCount === 0) {
-      setIsLoading(true);
-      setError(null);
-    }
+  const fetchServiceById = async (serviceId: string) => {
+    setIsLoading(true);
+    setError(null);
     
     try {
-      const response = await getServiceById(serviceId, retryCount);
-      
-      // Only update state on the initial call or final successful retry
-      if (retryCount === 0) {
-        setIsLoading(false);
-      }
-      
+      const response = await getServiceById(serviceId);
+      setIsLoading(false);
       return response;
     } catch (err: any) {
       console.error('Error fetching service details:', err);
-      
-      // Handle rate limiting with exponential backoff
-      if (err?.response?.status === 429 && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with exponential backoff
-        return fetchServiceById(serviceId, retryCount + 1);
-      }
-      
-      // Only update state on the initial call or final failed retry
-      if (retryCount === 0 || retryCount >= 3) {
-        setError(err.message || 'Failed to fetch service details');
-        setIsLoading(false);
-      }
-      
+      setError(err.message || 'Failed to fetch service details');
+      setIsLoading(false);
       throw err;
     }
   };
@@ -193,77 +243,6 @@ export const useServices = () => {
     } catch (err: any) {
       setError(err.message || 'Failed to fetch services by category');
       setIsLoading(false);
-      throw err;
-    }
-  };
-  
-  // Get all service categories
-  const fetchServiceCategories = async (retryCount: number = 0): Promise<ServiceCategoriesResponse> => {
-    // Create a unique key for this request
-    const requestKey = 'service_categories';
-    
-    // If this exact request is already in progress, return a promise that resolves when it's done
-    if (isRequestInProgress[requestKey] && retryCount === 0) {
-      console.log('Request already in progress, skipping duplicate call:', requestKey);
-      return new Promise<ServiceCategoriesResponse>((resolve) => {
-        const checkInterval = setInterval(async () => {
-          if (!isRequestInProgress[requestKey]) {
-            clearInterval(checkInterval);
-            // Return an empty response to avoid TypeScript errors
-            resolve({
-              categories: [],
-              results: 0
-            });
-          }
-        }, 100);
-      });
-    }
-    
-    // Mark this request as in progress
-    setIsRequestInProgress(prev => ({ ...prev, [requestKey]: true }));
-    
-    // Only set loading state on the initial call, not on retries
-    if (retryCount === 0) {
-      setIsCategoriesLoading(true);
-      setError(null);
-    }
-    
-    try {
-      const response = await getServiceCategories();
-      
-      // Only update state on the initial call or final successful retry
-      if (retryCount === 0) {
-        setIsCategoriesLoading(false);
-      }
-      
-      // Mark request as complete
-      setIsRequestInProgress(prev => ({ ...prev, [requestKey]: false }));
-      
-      return response;
-    } catch (err: any) {
-      console.error('Error fetching service categories:', err);
-      
-      // Handle rate limiting with exponential backoff
-      if (err?.response?.status === 429 && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with exponential backoff
-        return fetchServiceCategories(retryCount + 1);
-      }
-      
-      // Only update state on the initial call or final failed retry
-      if (retryCount === 0 || retryCount >= 3) {
-        setError(err.message || 'Failed to fetch service categories');
-        setIsCategoriesLoading(false);
-      }
-      
-      // Mark request as complete
-      setIsRequestInProgress(prev => ({ ...prev, [requestKey]: false }));
-      
       throw err;
     }
   };
@@ -350,40 +329,10 @@ export const useServices = () => {
   // Get provider's own services (provider only)
   const fetchProviderServices = async (
     page: number = 1,
-    limit: number = 10,
-    retryCount: number = 0
+    limit: number = 10
   ): Promise<ServicesResponse> => {
-    // Create a unique key for this request
-    const requestKey = `provider_services_${page}_${limit}`;
-    
-    // If this exact request is already in progress, return a promise that resolves when it's done
-    if (isRequestInProgress[requestKey] && retryCount === 0) {
-      console.log('Request already in progress, skipping duplicate call:', requestKey);
-      return new Promise<ServicesResponse>((resolve) => {
-        const checkInterval = setInterval(async () => {
-          if (!isRequestInProgress[requestKey]) {
-            clearInterval(checkInterval);
-            // Return an empty response to avoid TypeScript errors
-            resolve({
-              services: [],
-              results: 0,
-              total: 0,
-              page: page,
-              totalPages: 0
-            });
-          }
-        }, 100);
-      });
-    }
-    
-    // Mark this request as in progress
-    setIsRequestInProgress(prev => ({ ...prev, [requestKey]: true }));
-    
-    // Only set loading state on the initial call, not on retries
-    if (retryCount === 0) {
-      setIsLoading(true);
-      setError(null);
-    }
+    setIsLoading(true);
+    setError(null);
     
     try {
       // Check if user is a provider
@@ -391,41 +340,13 @@ export const useServices = () => {
         throw new Error('Only providers can access their services');
       }
       
-      const response = await getProviderServices(page, limit, retryCount);
-      
-      // Only update state on the initial call or final successful retry
-      if (retryCount === 0) {
-        setIsLoading(false);
-      }
-      
-      // Mark request as complete
-      setIsRequestInProgress(prev => ({ ...prev, [requestKey]: false }));
-      
+      const response = await getProviderServices(page, limit);
+      setIsLoading(false);
       return response;
     } catch (err: any) {
       console.error('Error fetching provider services:', err);
-      
-      // Handle rate limiting with exponential backoff
-      if (err?.response?.status === 429 && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Rate limited. Retrying in ${delay}ms... (Attempt ${retryCount + 1}/3)`);
-        
-        // Wait for the delay period
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry with exponential backoff
-        return fetchProviderServices(page, limit, retryCount + 1);
-      }
-      
-      // Only update state on the initial call or final failed retry
-      if (retryCount === 0 || retryCount >= 3) {
-        setError(err.message || 'Failed to fetch provider services');
-        setIsLoading(false);
-      }
-      
-      // Mark request as complete
-      setIsRequestInProgress(prev => ({ ...prev, [requestKey]: false }));
-      
+      setError(err.message || 'Failed to fetch provider services');
+      setIsLoading(false);
       throw err;
     }
   };

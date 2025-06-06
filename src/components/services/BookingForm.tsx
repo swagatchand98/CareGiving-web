@@ -162,10 +162,10 @@ const BookingForm: React.FC<BookingFormProps> = ({
       setBookingId(response.booking._id);
       setShowSuccessMessage(true);
       
-      // Redirect to booking details page after 3 seconds
+      // Redirect to payment page
       setTimeout(() => {
-        router.push(`/dashboard/user?booking=success&id=${response.booking._id}`);
-      }, 3000);
+        router.push(`/payment/${response.booking._id}`);
+      }, 1500);
     } catch (err: any) {
       setFormErrors({
         general: err.message || 'Failed to create booking. Please try again.'
@@ -193,9 +193,9 @@ const BookingForm: React.FC<BookingFormProps> = ({
         <svg className="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
         </svg>
-        <h3 className="text-xl font-semibold text-green-800 mb-2">Booking Successful!</h3>
+        <h3 className="text-xl font-semibold text-green-800 mb-2">Booking Created!</h3>
         <p className="text-green-700 mb-4">
-          Your booking request has been sent to {providerName}. You will be redirected to your dashboard shortly.
+          Your booking has been created. You will be redirected to the payment page shortly.
         </p>
         <p className="text-sm text-green-600">Booking ID: {bookingId}</p>
       </div>

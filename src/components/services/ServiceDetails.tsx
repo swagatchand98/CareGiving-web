@@ -5,6 +5,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Service, ServiceProvider, ServiceCategory } from '@/services/serviceService';
 import Button from '../common/Button';
+import WishlistButton from './WishlistButton';
+import RatingDisplay from '../common/RatingDisplay';
+import ReviewList from '../reviews/ReviewList';
 
 interface ServiceDetailsProps {
   service: Service;
@@ -141,7 +144,7 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({ service, onBookNow }) =
         
         {/* Service Info */}
         <div>
-          <div className="flex items-center mb-2">
+          <div className="flex items-center justify-between mb-2">
             <Link 
               href={typeof service.categoryId === 'string' 
                 ? `/services/browse?category=${service.categoryId}` 
@@ -151,9 +154,25 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({ service, onBookNow }) =
             >
               {getCategoryName()}
             </Link>
+            
+            <WishlistButton 
+              serviceId={service._id} 
+              showText={true}
+            />
           </div>
           
           <h1 className="text-2xl font-bold mb-2">{service.title}</h1>
+          
+          {/* Rating Display */}
+          {service.rating && (
+            <div className="mb-3">
+              <RatingDisplay 
+                rating={service.rating.average} 
+                reviewCount={service.rating.count}
+                size="md"
+              />
+            </div>
+          )}
           
           <div className="flex items-center mb-4">
             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden mr-2">
@@ -243,6 +262,18 @@ const ServiceDetails: React.FC<ServiceDetailsProps> = ({ service, onBookNow }) =
           <p className="whitespace-pre-line">{service.additionalDetails.specialRequirements}</p>
         </div>
       )}
+      
+      {/* Reviews Section */}
+      <div className="p-6 border-t border-gray-200">
+        <h2 className="text-xl font-semibold mb-4">Reviews</h2>
+        {typeof service.providerId !== 'string' && (
+          <ReviewList 
+            providerId={service.providerId._id}
+            limit={5}
+            showViewAll={true}
+          />
+        )}
+      </div>
     </div>
   );
 };
