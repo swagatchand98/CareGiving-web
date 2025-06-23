@@ -1,12 +1,13 @@
-import React from 'react';
+import { use } from 'react';
 import BookingDetailsClient from './BookingDetailsClient';
 
 interface BookingDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function BookingDetailsPage({ params }: BookingDetailsPageProps) {
-  return <BookingDetailsClient bookingId={params.id} />;
+  const resolvedParams = use(params);
+  return <BookingDetailsClient bookingId={resolvedParams.id} />;
 }

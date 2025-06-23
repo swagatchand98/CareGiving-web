@@ -2,10 +2,12 @@ import api from '@/lib/axios';
 
 // Types
 export interface WishlistItem {
-  _id: string;
+  id: string;
+  _id?: string; // Keep for backward compatibility
   userId: string;
   serviceId: {
-    _id: string;
+    id: string;
+    _id?: string; // Keep for backward compatibility
     title: string;
     description: string;
     price: {
@@ -14,7 +16,8 @@ export interface WishlistItem {
     };
     images?: string[];
     providerId: {
-      _id: string;
+      id: string;
+      _id?: string; // Keep for backward compatibility
       firstName: string;
       lastName: string;
       profilePicture?: string;

@@ -3,18 +3,30 @@
 import React, { useState, useEffect } from 'react';
 import { useTimeSlots } from '@/hooks/useTimeSlots';
 import { GroupedTimeSlots, TimeSlot } from '@/services/timeSlotService';
+import { getServiceById } from '@/services/serviceService';
 import Button from '@/components/common/Button';
+
+interface TimeSlotSegment {
+  timeSlotId: string;
+  start: string;
+  end: string;
+  isBooked: boolean;
+  isReserved?: boolean;
+  segmentIndex: number;
+}
 
 interface TimeSlotSelectorProps {
   serviceId: string;
-  onSelectTimeSlot: (timeSlot: TimeSlot) => void;
+  onSelectTimeSlot: (timeSlot: TimeSlot, segment?: TimeSlotSegment) => void;
   selectedTimeSlotId?: string;
+  selectedSegmentIndex?: number;
 }
 
 const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   serviceId,
   onSelectTimeSlot,
-  selectedTimeSlotId
+  selectedTimeSlotId,
+  selectedSegmentIndex
 }) => {
   // Hooks from useTimeSlots
   const { fetchServiceTimeSlots, isLoading: apiLoading, error: apiError } = useTimeSlots();
@@ -25,6 +37,8 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [serviceDuration, setServiceDuration] = useState<number>(60); // Default to 60 minutes
+  const [isLoadingService, setIsLoadingService] = useState<boolean>(false);
   
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -48,29 +62,31 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   const getDatesInMonth = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
     
     const dates = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Add dates from the current month
-    for (let day = 1; day <= lastDay.getDate(); day++) {
+    // Add all dates from the current month
+    for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
+      const dateStr = date.toISOString().split('T')[0];
       
-      // Only include dates from today onwards
-      if (date >= today) {
-        const dateStr = date.toISOString().split('T')[0];
-        
-        // Check if this date has time slots
-        const hasTimeSlots = groupedTimeSlots[dateStr] && groupedTimeSlots[dateStr].length > 0;
-        
-        dates.push({
-          date,
-          dateStr,
-          hasTimeSlots
-        });
-      }
+      // Check if this date has time slots
+      const hasTimeSlots = groupedTimeSlots[dateStr] && groupedTimeSlots[dateStr].length > 0;
+      
+      // Include all dates, but disable past dates
+      const isPastDate = date < today;
+      
+      dates.push({
+        date,
+        dateStr,
+        hasTimeSlots,
+        isPastDate
+      });
     }
     
     return dates;
@@ -99,104 +115,195 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   
   // Handle date selection
   const handleDateSelect = (dateStr: string) => {
+    console.log(`Selected date: ${dateStr}`);
+    console.log(`Time slots for this date:`, groupedTimeSlots[dateStr]);
     setSelectedDate(dateStr);
   };
   
   // Handle time slot selection
-  const handleTimeSlotSelect = (timeSlot: TimeSlot) => {
-    onSelectTimeSlot(timeSlot);
+  const handleTimeSlotSelect = (timeSlot: TimeSlot, segmentIndex?: number) => {
+    console.log('handleTimeSlotSelect called with segmentIndex:', segmentIndex);
+    
+    if (segmentIndex !== undefined) {
+      // If we have segments from the API, use those
+      if (timeSlot.segments && timeSlot.segments.length > 0) {
+        const apiSegment = timeSlot.segments.find(s => s.segmentIndex === segmentIndex);
+        if (apiSegment) {
+          console.log('Using segment from API:', apiSegment);
+          const segment: TimeSlotSegment = {
+            timeSlotId: timeSlot._id,
+            start: apiSegment.startTime,
+            end: apiSegment.endTime,
+            isBooked: apiSegment.isBooked,
+            segmentIndex: apiSegment.segmentIndex
+          };
+          
+          // Only allow selecting segments that are not booked
+          if (!segment.isBooked) {
+            onSelectTimeSlot(timeSlot, segment);
+          } else {
+            console.log('Cannot select booked segment');
+          }
+          return;
+        }
+      }
+      
+      // Calculate segment times
+      const [startHours, startMinutes] = timeSlot.startTime.split(':').map(Number);
+      const startTotalMinutes = startHours * 60 + startMinutes;
+      
+      const segmentStartMinutes = startTotalMinutes + (segmentIndex * serviceDuration);
+      const segmentEndMinutes = segmentStartMinutes + serviceDuration;
+      
+      const segmentStartHours = Math.floor(segmentStartMinutes / 60);
+      const segmentStartMins = segmentStartMinutes % 60;
+      const segmentEndHours = Math.floor(segmentEndMinutes / 60);
+      const segmentEndMins = segmentEndMinutes % 60;
+      
+      const formattedSegmentStart = `${segmentStartHours.toString().padStart(2, '0')}:${segmentStartMins.toString().padStart(2, '0')}`;
+      const formattedSegmentEnd = `${segmentEndHours.toString().padStart(2, '0')}:${segmentEndMins.toString().padStart(2, '0')}`;
+      
+      const segment: TimeSlotSegment = {
+        timeSlotId: timeSlot._id,
+        start: formattedSegmentStart,
+        end: formattedSegmentEnd,
+        isBooked: false, // We're only showing available segments
+        segmentIndex
+      };
+      
+      console.log('Using calculated segment:', segment);
+      onSelectTimeSlot(timeSlot, segment);
+    } else {
+      onSelectTimeSlot(timeSlot);
+    }
   };
   
-  // Ref to track if we've already made the API call for this service
-  const apiCallMadeRef = React.useRef<string | null>(null);
-  
-  // Load time slots for the service
-  useEffect(() => {
-    // Skip if we've already made the API call for this service
-    if (apiCallMadeRef.current === serviceId) {
-      console.log('API call already made for this service, skipping');
-      return;
-    }
+  // Function to refresh time slots
+  const refreshTimeSlots = async () => {
+    setIsLoading(true);
+    setError(null);
     
-    // Set the flag immediately to prevent multiple calls
-    apiCallMadeRef.current = serviceId;
-    
-    const loadTimeSlots = async () => {
-      setIsLoading(true);
-      setError(null);
+    try {
+      console.log('Refreshing time slots for service:', serviceId);
       
-      try {
-        console.log('Loading time slots for service:', serviceId);
+      // Calculate dynamic date range: today and next 60 days
+      const today = new Date();
+      const endDate = new Date();
+      endDate.setDate(today.getDate() + 60); // Look 60 days ahead
+      
+      const formattedStartDate = today.toISOString().split('T')[0];
+      const formattedEndDate = endDate.toISOString().split('T')[0];
+      
+      console.log(`Fetching time slots from ${formattedStartDate} to ${formattedEndDate}`);
+      
+      const response = await fetchServiceTimeSlots(serviceId, {
+        startDate: formattedStartDate,
+        endDate: formattedEndDate
+      });
+      
+      console.log('API response received:', response);
+      
+      // Extract the groupedSlots from the API response
+      const groupedSlots = response.groupedSlots as any;
+      const slotsCount = Object.keys(groupedSlots).length;
+      console.log(`Time slots in response: ${slotsCount}`);
+      
+      if (slotsCount > 0) {
+      // Process the API response to match the expected format
+      const processedSlots: GroupedTimeSlots = {};
+      
+      // Process each date in the response
+      Object.keys(groupedSlots).forEach(date => {
+        console.log(`Processing date from API: ${date}`);
         
-        // Make the API call to get time slots
-        console.log('Making API call to get time slots');
-        const response = await fetchServiceTimeSlots(serviceId, {
-          startDate: '2025-05-07',
-          endDate: '2025-06-06'
+        // Ensure we're using the correct date format (YYYY-MM-DD)
+        const dateObj = new Date(date);
+        const formattedDate = dateObj.toISOString().split('T')[0];
+        console.log(`Formatted date: ${formattedDate}`);
+        
+        processedSlots[formattedDate] = groupedSlots[date].map((slot: any) => {
+          // Extract providerId as string if it's an object
+          const providerId = typeof slot.providerId === 'object' && slot.providerId !== null
+            ? slot.providerId._id
+            : slot.providerId;
+          
+          // Return a new object with the correct format
+          return {
+            _id: slot._id,
+            providerId,
+            serviceId: slot.serviceId,
+            date: slot.date,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            isBooked: slot.isBooked,
+            segments: slot.segments || [],
+            createdAt: slot.createdAt,
+            updatedAt: slot.updatedAt
+          };
         });
+      });
         
-        console.log('API response received:', response);
+        console.log('Processed time slots:', processedSlots);
         
-        // Extract the groupedSlots from the API response
-        const groupedSlots = response.groupedSlots as any;
-        const slotsCount = Object.keys(groupedSlots).length;
-        console.log(`Time slots in response: ${slotsCount}`);
-        
-        if (slotsCount > 0) {
-          const firstDate = Object.keys(groupedSlots)[0];
-          console.log('First date in response:', firstDate);
-          
-          // Process the API response to match the expected format
-          const processedSlots: GroupedTimeSlots = {};
-          
-          // Process each date in the response
-          Object.keys(groupedSlots).forEach(date => {
-            processedSlots[date] = groupedSlots[date].map((slot: any) => {
-              // Extract providerId as string if it's an object
-              const providerId = typeof slot.providerId === 'object' && slot.providerId !== null
-                ? slot.providerId._id
-                : slot.providerId;
-              
-              // Return a new object with the correct format
-              return {
-                _id: slot._id,
-                providerId,
-                serviceId: slot.serviceId,
-                date: slot.date,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                isBooked: slot.isBooked,
-                createdAt: slot.createdAt,
-                updatedAt: slot.updatedAt
-              };
-            });
-          });
-          
-          console.log('Processed time slots:', processedSlots);
-          
-          // Update all state at once to minimize re-renders
-          const firstAvailableDate = new Date(firstDate);
-          const newCurrentMonth = new Date(firstAvailableDate.getFullYear(), firstAvailableDate.getMonth(), 1);
-          
-          // Set all state at once
-          setGroupedTimeSlots(processedSlots);
-          setSelectedDate(firstDate);
-          setCurrentMonth(newCurrentMonth);
-        } else {
-          console.log('No time slots available');
-          setGroupedTimeSlots({});
-          setSelectedDate(null);
+        // Update state
+        setGroupedTimeSlots(processedSlots);
+      } else {
+        console.log('No time slots available');
+        setGroupedTimeSlots({});
+      }
+    } catch (err) {
+      console.error('Error refreshing time slots:', err);
+      setError('Failed to refresh time slots');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Set up an interval to refresh time slots every 5 seconds
+  useEffect(() => {
+    // Initial load
+    const loadInitialTimeSlots = async () => {
+      await refreshTimeSlots();
+    };
+    
+    loadInitialTimeSlots();
+    ``
+    // Set up interval for refreshing
+    const intervalId = setInterval(() => {
+      console.log('Auto-refreshing time slots...');
+      refreshTimeSlots();
+    }, 25000); // Refresh every 25 seconds
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [serviceId]);
+  
+  // Add a manual refresh button
+  const handleManualRefresh = () => {
+    console.log('Manual refresh triggered');
+    refreshTimeSlots();
+  };
+  
+  // Load service details to get duration
+  useEffect(() => {
+    const loadServiceDetails = async () => {
+      if (!serviceId) return;
+      
+      setIsLoadingService(true);
+      try {
+        const response = await getServiceById(serviceId);
+        if (response && response.service) {
+          setServiceDuration(response.service.duration);
         }
       } catch (err) {
-        console.error('Error loading time slots:', err);
-        setError('Failed to load time slots');
+        console.error('Error loading service details:', err);
       } finally {
-        setIsLoading(false);
+        setIsLoadingService(false);
       }
     };
     
-    loadTimeSlots();
-  }, [serviceId, fetchServiceTimeSlots]);
+    loadServiceDetails();
+  }, [serviceId]);
   
   // Get dates and available dates for rendering
   const dates = getDatesInMonth();
@@ -205,6 +312,15 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   // Debug log to see what's happening
   console.log('Rendering with groupedTimeSlots:', groupedTimeSlots);
   console.log('Available dates:', availableDates);
+  
+  // Log each date in the calendar to debug
+  dates.forEach(dateInfo => {
+    const hasSlots = groupedTimeSlots[dateInfo.dateStr] && groupedTimeSlots[dateInfo.dateStr].length > 0;
+    console.log(`Calendar date: ${dateInfo.dateStr}, Has slots: ${hasSlots}, Date: ${dateInfo.date.toDateString()}`);
+    if (hasSlots) {
+      console.log(`Slots for ${dateInfo.dateStr}:`, groupedTimeSlots[dateInfo.dateStr]);
+    }
+  });
   
   // Show loading state if we're still loading time slots
   if (isLoading) {
@@ -236,7 +352,18 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
   
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
-      <h2 className="text-xl font-semibold mb-4">Select a Date & Time</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Select a Date & Time</h2>
+        <button 
+          onClick={handleManualRefresh}
+          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 flex items-center"
+        >
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          Refresh
+        </button>
+      </div>
       
       {/* Month Navigation */}
       <div className="flex justify-between items-center mb-4">
@@ -278,13 +405,14 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
         ))}
         
         {/* Date cells */}
-        {dates.map(({ date, dateStr, hasTimeSlots }) => (
+        {dates.map(({ date, dateStr, hasTimeSlots, isPastDate }) => (
           <div 
             key={dateStr}
-            onClick={() => hasTimeSlots && handleDateSelect(dateStr)}
+            onClick={() => hasTimeSlots && !isPastDate && handleDateSelect(dateStr)}
             className={`
               p-1 text-center cursor-pointer
-              ${hasTimeSlots ? 'hover:bg-gray-100' : 'opacity-50 cursor-not-allowed'}
+              ${isPastDate ? 'text-gray-300 cursor-not-allowed' : 
+                hasTimeSlots ? 'hover:bg-gray-100' : 'opacity-50 cursor-not-allowed'}
               ${selectedDate === dateStr ? 'bg-blue-100 text-blue-800' : ''}
               ${dateStr === new Date().toISOString().split('T')[0] ? 'border border-blue-500' : ''}
             `}
@@ -308,22 +436,112 @@ const TimeSlotSelector: React.FC<TimeSlotSelectorProps> = ({
             Available Times for {formatDate(selectedDate)}
           </h3>
           
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {groupedTimeSlots[selectedDate].map((timeSlot) => (
-              <button
-                key={timeSlot._id}
-                onClick={() => handleTimeSlotSelect(timeSlot)}
-                className={`
-                  py-2 px-3 text-sm border rounded-md text-center
-                  ${selectedTimeSlotId === timeSlot._id
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
-                  }
-                `}
-              >
-                {formatTime(timeSlot.startTime)} - {formatTime(timeSlot.endTime)}
-              </button>
-            ))}
+          <div className="grid grid-cols-1 gap-3">
+            {groupedTimeSlots[selectedDate].map((timeSlot) => {
+              // Use segments from the API response if available, show all segments including booked ones
+              const segments = timeSlot.segments || [];
+              
+              console.log('Time slot:', timeSlot);
+              console.log('All segments from API:', timeSlot.segments);
+              
+              // If no segments are available from the API, calculate them
+              if (segments.length === 0) {
+                console.warn('No segments found in API response, calculating locally');
+                
+                const [startHours, startMinutes] = timeSlot.startTime.split(':').map(Number);
+                const [endHours, endMinutes] = timeSlot.endTime.split(':').map(Number);
+                const startTotalMinutes = startHours * 60 + startMinutes;
+                const endTotalMinutes = endHours * 60 + endMinutes;
+                const slotDuration = endTotalMinutes - startTotalMinutes;
+                
+                // Calculate number of segments based on service duration
+                const numSegments = Math.floor(slotDuration / serviceDuration);
+                
+                for (let i = 0; i < numSegments; i++) {
+                  const segmentStartMinutes = startTotalMinutes + (i * serviceDuration);
+                  const segmentEndMinutes = segmentStartMinutes + serviceDuration;
+                  
+                  const segmentStartHours = Math.floor(segmentStartMinutes / 60);
+                  const segmentStartMins = segmentStartMinutes % 60;
+                  const segmentEndHours = Math.floor(segmentEndMinutes / 60);
+                  const segmentEndMins = segmentEndMinutes % 60;
+                  
+                  const formattedSegmentStart = `${segmentStartHours.toString().padStart(2, '0')}:${segmentStartMins.toString().padStart(2, '0')}`;
+                  const formattedSegmentEnd = `${segmentEndHours.toString().padStart(2, '0')}:${segmentEndMins.toString().padStart(2, '0')}`;
+                  
+                  segments.push({
+                    _id: `${timeSlot._id}-${i}`,
+                    timeSlotId: timeSlot._id,
+                    segmentIndex: i,
+                    startTime: formattedSegmentStart,
+                    endTime: formattedSegmentEnd,
+                    isBooked: timeSlot.isBooked,
+                    createdAt: timeSlot.createdAt,
+                    updatedAt: timeSlot.updatedAt
+                  });
+                }
+              }
+              
+              // Check if we have any available segments
+              const hasAvailableSegments = segments.some(segment => !segment.isBooked);
+              
+              return (
+                <div 
+                  key={timeSlot._id} 
+                  className="p-3 border rounded-md border-gray-200"
+                >
+                  <div className="font-medium mb-2">
+                    {formatTime(timeSlot.startTime)} - {formatTime(timeSlot.endTime)}
+                  </div>
+                  
+                  {/* Show segments */}
+                  {segments.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-500 mb-1">Segments ({serviceDuration} min each):</p>
+                      <div className="grid grid-cols-4 gap-1">
+                        {segments.map((segment) => {
+                          console.log('Rendering segment:', segment);
+                          return (
+                            <button
+                              key={segment._id}
+                              onClick={() => {
+                                if (!segment.isBooked) {
+                                  console.log('Segment clicked:', segment);
+                                  handleTimeSlotSelect(timeSlot, segment.segmentIndex);
+                                } else {
+                                  console.log('Cannot select booked segment');
+                                }
+                              }}
+                              disabled={segment.isBooked || segment.isReserved}
+                              className={`
+                                text-xs px-2 py-2 rounded-md text-left
+                                ${selectedTimeSlotId === timeSlot._id && selectedSegmentIndex === segment.segmentIndex
+                                  ? 'bg-blue-600 text-white'
+                                  : segment.isBooked
+                                    ? 'bg-red-50 text-red-700 cursor-not-allowed'
+                                    : segment.isReserved
+                                      ? 'bg-yellow-50 text-yellow-700 cursor-not-allowed'
+                                      : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                }
+                              `}
+                            >
+                              {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
+                              <span className="ml-1 font-medium">
+                                {segment.isBooked 
+                                  ? '(Booked)' 
+                                  : segment.isReserved 
+                                    ? '(Reserved)' 
+                                    : '(Available)'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

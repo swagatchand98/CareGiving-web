@@ -169,10 +169,10 @@ export default function WishlistPage() {
                 <div className="space-y-4">
                   {wishlistItems.map((item) => (
                     <WishlistItem 
-                      key={item._id} 
+                      key={item.id || item._id || `wishlist-item-${Math.random()}`} 
                       item={item} 
                       onRemove={handleRemoveFromWishlist}
-                      isRemoving={removingServiceId === item.serviceId._id}
+                      isRemoving={removingServiceId === (item.serviceId?.id || item.serviceId?._id || '')}
                     />
                   ))}
                 </div>

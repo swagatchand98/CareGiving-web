@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import AdminHeader from '@/components/layout/AdminHeader';
+import AdminHeader from '@/components/layout/ProviderHeader';
 import Footer from '@/components/layout/Footer';
 import Button from '@/components/common/Button';
 import { Service, ServiceProvider } from '@/types/service';

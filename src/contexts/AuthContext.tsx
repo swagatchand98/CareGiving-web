@@ -42,6 +42,11 @@ interface AuthContextType {
     lastName: string;
     phoneNumber?: string;
     address?: string;
+    bio?: string;
+    experience?: string;
+    qualifications?: string;
+    serviceType?: string;
+    hourlyRate?: number;
   }) => Promise<void>;
 }
 
@@ -210,6 +215,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     lastName: string;
     phoneNumber?: string;
     address?: string;
+    bio?: string;
+    experience?: string;
+    qualifications?: string;
+    serviceType?: string;
+    hourlyRate?: number;
   }) => {
     if (!token || !user) {
       throw new Error('Not authenticated');

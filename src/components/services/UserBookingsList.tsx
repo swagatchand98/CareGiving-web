@@ -174,9 +174,9 @@ const UserBookingsList: React.FC<UserBookingsListProps> = ({
           >
             <div className="flex justify-between items-start">
               <div>
-                <h4 className="font-semibold">{booking.serviceId.title}</h4>
+                <h4 className="font-semibold">{booking.serviceId?.title || 'Untitled Service'}</h4>
                 <p className="text-sm text-gray-600">
-                  Provider: {booking.providerId.firstName} {booking.providerId.lastName}
+                  Provider: {booking.providerId?.firstName || 'Unknown'} {booking.providerId?.lastName || ''}
                 </p>
                 <p className="text-sm text-gray-600">
                   {formatDate(booking.dateTime)}
@@ -190,7 +190,7 @@ const UserBookingsList: React.FC<UserBookingsListProps> = ({
                 <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(booking.status)}`}>
                   {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                 </span>
-                <p className="font-semibold mt-1">${booking.totalPrice.toFixed(2)}</p>
+                <p className="font-semibold mt-1">${booking.totalPrice?.toFixed(2) || '0.00'}</p>
               </div>
             </div>
             

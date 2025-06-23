@@ -1,12 +1,13 @@
-import React from 'react';
+import { use } from 'react';
 import ChatClient from './ChatClient';
 
 interface ChatPageProps {
-  params: {
+  params: Promise<{
     bookingId: string;
-  };
+  }>;
 }
 
 export default function ChatPage({ params }: ChatPageProps) {
-  return <ChatClient bookingId={params.bookingId} />;
+  const resolvedParams = use(params);
+  return <ChatClient bookingId={resolvedParams.bookingId} />;
 }

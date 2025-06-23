@@ -1,12 +1,13 @@
-import React from 'react';
+import { use } from 'react';
 import PaymentClient from './PaymentClient';
 
 interface PaymentPageProps {
-  params: {
+  params: Promise<{
     bookingId: string;
-  };
+  }>;
 }
 
 export default function PaymentPage({ params }: PaymentPageProps) {
-  return <PaymentClient bookingId={params.bookingId} />;
+  const resolvedParams = use(params);
+  return <PaymentClient bookingId={resolvedParams.bookingId} />;
 }

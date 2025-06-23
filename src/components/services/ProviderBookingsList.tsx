@@ -179,9 +179,9 @@ const ProviderBookingsList: React.FC<ProviderBookingsListProps> = ({
           >
             <div className="flex justify-between items-start">
               <div>
-                <h4 className="font-semibold">{booking.serviceId.title}</h4>
+                <h4 className="font-semibold">{booking.serviceId?.title || 'Untitled Service'}</h4>
                 <p className="text-sm text-gray-600">
-                  Client: {booking.userId.firstName} {booking.userId.lastName}
+                  Client: {booking.userId?.firstName || 'Unknown'} {booking.userId?.lastName || ''}
                 </p>
                 <p className="text-sm text-gray-600">
                   {formatDate(booking.dateTime)}
@@ -189,8 +189,16 @@ const ProviderBookingsList: React.FC<ProviderBookingsListProps> = ({
                 <p className="text-sm text-gray-600">
                   Duration: {booking.duration} minutes
                 </p>
+                {/* Display timeslot segment information if available */}
+                {booking.timeSlotSegment && (
+                  <p className="text-sm text-gray-600">
+                    Time Slot: {booking.timeSlotSegment.startTime} - {booking.timeSlotSegment.endTime}
+                    {booking.timeSlotSegment.isReserved && <span className="ml-2 px-1 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded">Reserved</span>}
+                    {booking.timeSlotSegment.isBooked && <span className="ml-2 px-1 py-0.5 bg-green-100 text-green-800 text-xs rounded">Booked</span>}
+                  </p>
+                )}
                 <p className="text-sm text-gray-600 mt-1">
-                  Address: {booking.address.street}, {booking.address.city}, {booking.address.state} {booking.address.zipCode}
+                  Address: {booking.address?.street || 'N/A'}, {booking.address?.city || ''}, {booking.address?.state || ''} {booking.address?.zipCode || ''}
                 </p>
               </div>
               
@@ -198,7 +206,7 @@ const ProviderBookingsList: React.FC<ProviderBookingsListProps> = ({
                 <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(booking.status)}`}>
                   {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                 </span>
-                <p className="font-semibold mt-1">${booking.totalPrice.toFixed(2)}</p>
+                <p className="font-semibold mt-1">${booking.totalPrice?.toFixed(2) || '0.00'}</p>
               </div>
             </div>
             

@@ -9,6 +9,7 @@ import { BookingResponse } from '@/services/bookingService';
 import Button from '../common/Button';
 import ReviewForm from '../reviews/ReviewForm';
 import ChatInterface from '../chat/ChatInterface';
+import EarningsBreakdown from '../provider/EarningsBreakdown';
 
 interface BookingDetailsProps {
   bookingId: string;
@@ -461,6 +462,22 @@ const BookingDetails: React.FC<BookingDetailsProps> = ({ bookingId }) => {
                 <p className="font-medium">${booking.transaction.amount.toFixed(2)}</p>
               </div>
             </div>
+            
+            {/* Show earnings breakdown for providers */}
+            {isProvider() && booking.booking.status === 'completed' && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="font-medium mb-3">Earnings Breakdown</h4>
+                <EarningsBreakdown
+                  totalAmount={booking.transaction.amount}
+                  platformFee={booking.transaction.platformCommission || booking.transaction.amount * 0.15}
+                  taxAmount={booking.transaction.amount * 0.07}
+                  stripeFee={(booking.transaction.amount * 0.029) + 0.30}
+                  providerAmount={booking.transaction.amount - 
+                    (booking.transaction.platformCommission || booking.transaction.amount * 0.15) - 
+                    (booking.transaction.amount * 0.07)}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

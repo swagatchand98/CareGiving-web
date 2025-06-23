@@ -19,13 +19,20 @@ export interface ServiceProvider {
   phoneNumber?: string;
 }
 
+export interface MediaFile {
+  url: string;
+  type: 'image' | 'video' | 'document';
+  name?: string;
+}
+
 export interface Service {
   _id: string;
   providerId: string | ServiceProvider;
   categoryId: string | ServiceCategory;
   title: string;
   description: string;
-  images: string[];
+  images: string[];  // Legacy field for backward compatibility
+  mediaFiles?: MediaFile[];  // New field for better media type handling
   price: {
     amount: number;
     type: 'fixed' | 'hourly';

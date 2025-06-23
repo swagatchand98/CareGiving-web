@@ -22,8 +22,8 @@ const ServiceSearch: React.FC<ServiceSearchProps> = ({
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
       <h3 className="text-lg font-semibold mb-4">Search Services</h3>
-      
-      <form onSubmit={handleSearch} className="flex space-x-2">
+
+      <form onSubmit={handleSearch} className="grid grid-cols-1 gap-2">
         <input
           type="text"
           value={searchQuery}
@@ -31,7 +31,7 @@ const ServiceSearch: React.FC<ServiceSearchProps> = ({
           className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-black"
           placeholder="Search for services..."
         />
-        <Button type="submit">
+        <Button type="submit" className='max-w-20'>
           Search
         </Button>
       </form>

@@ -1,6 +1,19 @@
 import api from '@/lib/axios';
 
 // Types
+export interface TimeSlotSegment {
+  _id: string;
+  timeSlotId: string;
+  segmentIndex: number;
+  startTime: string;
+  endTime: string;
+  isBooked: boolean;
+  isReserved?: boolean;
+  bookingId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TimeSlot {
   _id: string;
   providerId: string;
@@ -10,6 +23,7 @@ export interface TimeSlot {
   endTime: string;
   isBooked: boolean;
   bookingId?: string;
+  segments?: TimeSlotSegment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +59,9 @@ export interface BookTimeSlotData {
     country?: string;
   };
   specialInstructions?: string;
+  segmentIndex?: number;
+  segmentStart?: string;
+  segmentEnd?: string;
 }
 
 // Get available time slots for a service
@@ -155,6 +172,13 @@ export const bookTimeSlot = async (
   data: BookTimeSlotData
 ): Promise<{ booking: any; timeSlot: TimeSlot }> => {
   try {
+    console.log(`Booking time slot ${timeSlotId} with data:`, data);
+    
+    // Ensure segmentIndex is a number if it exists
+    if (data.segmentIndex !== undefined) {
+      data.segmentIndex = Number(data.segmentIndex);
+    }
+    
     const response = await api.post(`/timeslots/${timeSlotId}/book`, data);
     return (response.data as any).data;
   } catch (error: any) {

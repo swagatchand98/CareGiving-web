@@ -1,12 +1,13 @@
-import React from 'react';
+import { use } from 'react';
 import ServiceDetailsClient from './ServiceDetailsClient';
 
 interface ServiceDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function ServiceDetailsPage({ params }: ServiceDetailsPageProps) {
-  return <ServiceDetailsClient serviceId={params.id} />;
+  const resolvedParams = use(params);
+  return <ServiceDetailsClient serviceId={resolvedParams.id} />;
 }

@@ -57,6 +57,15 @@ export interface Booking {
   totalPrice: number;
   createdAt: string;
   updatedAt: string;
+  // Time slot segment information
+  timeSlotSegment?: {
+    _id: string;
+    timeSlotId: string;
+    startTime: string;
+    endTime: string;
+    isBooked: boolean;
+    isReserved: boolean;
+  };
 }
 
 export interface Transaction {

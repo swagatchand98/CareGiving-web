@@ -189,13 +189,13 @@ const EnhancedHeader: React.FC<EnhancedHeaderProps> = ({ user }) => {
                     My Bookings
                   </Link>
                   <Link 
-                    href="/payments" 
+                    href="/dashboard/user/payment-history" 
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
                     Payment History
                   </Link>
                   <Link 
-                    href="/settings" 
+                    href="/dashboard/user/settings" 
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
                     Settings

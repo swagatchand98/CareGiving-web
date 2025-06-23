@@ -31,6 +31,8 @@ export interface UserData {
   serviceType?: string;
   experience?: string;
   bio?: string;
+  qualifications?: string;
+  hourlyRate?: number;
   certifications?: string[];
   availability?: {
     days: string[];
@@ -298,6 +300,11 @@ export const updateUserProfile = async (
     lastName: string;
     phoneNumber?: string;
     address?: string;
+    bio?: string;
+    experience?: string;
+    qualifications?: string;
+    serviceType?: string;
+    hourlyRate?: number;
   }
 ): Promise<UserData> => {
   try {

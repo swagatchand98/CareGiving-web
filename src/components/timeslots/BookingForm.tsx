@@ -9,6 +9,17 @@ import { Address } from '@/services/addressService';
 import TimeSlotSelector from './TimeSlotSelector';
 import AddressSelector from '@/components/address/AddressSelector';
 import Button from '@/components/common/Button';
+import GooglePlacesAutocomplete from '@/components/address/GooglePlacesAutocomplete';
+import { parseGooglePlaceToAddress } from '@/utils/addressUtils';
+
+// Define the TimeSlotSegment interface
+interface TimeSlotSegment {
+  timeSlotId: string;
+  start: string;
+  end: string;
+  isBooked: boolean;
+  segmentIndex: number;
+}
 
 interface BookingFormProps {
   serviceId: string;
@@ -30,6 +41,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
   const { defaultAddress, addresses, fetchAddresses, isLoading: addressLoading } = useAddress();
   
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+  const [selectedSegment, setSelectedSegment] = useState<TimeSlotSegment | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [address, setAddress] = useState({
     street: '',
@@ -93,9 +105,16 @@ const BookingForm: React.FC<BookingFormProps> = ({
   };
   
   // Handle time slot selection
-  const handleTimeSlotSelect = (timeSlot: TimeSlot) => {
+  const handleTimeSlotSelect = (timeSlot: TimeSlot, segment?: TimeSlotSegment) => {
     console.log('Time slot selected:', timeSlot);
     setSelectedTimeSlot(timeSlot);
+    
+    if (segment) {
+      console.log('Segment selected:', segment);
+      setSelectedSegment(segment);
+    } else {
+      setSelectedSegment(null);
+    }
   };
   
   // Handle address input change
@@ -114,6 +133,25 @@ const BookingForm: React.FC<BookingFormProps> = ({
         [name]: ''
       }));
     }
+  };
+  
+  // Handle Google Places selection
+  const handlePlaceSelect = (place: google.maps.places.PlaceResult) => {
+    const addressData = parseGooglePlaceToAddress(place, address);
+    setAddress(prev => ({
+      ...prev,
+      ...addressData
+    }));
+    
+    // Clear related errors
+    setFormErrors(prev => ({
+      ...prev,
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: ''
+    }));
   };
   
   // Handle special instructions input change
@@ -186,8 +224,16 @@ const BookingForm: React.FC<BookingFormProps> = ({
       
       const bookingData: BookTimeSlotData = {
         address,
-        specialInstructions
+        specialInstructions,
+        // If a segment is selected, include the segment times
+        ...(selectedSegment && {
+          segmentStart: selectedSegment.start,
+          segmentEnd: selectedSegment.end,
+          segmentIndex: selectedSegment.segmentIndex
+        })
       };
+      
+      console.log('Booking data being sent to API:', bookingData);
       
       // Add a timeout to prevent hanging
       const timeoutPromise = new Promise<null>((_, reject) => {
@@ -279,6 +325,7 @@ const BookingForm: React.FC<BookingFormProps> = ({
             serviceId={serviceId}
             onSelectTimeSlot={handleTimeSlotSelect}
             selectedTimeSlotId={selectedTimeSlot?._id}
+            selectedSegmentIndex={selectedSegment?.segmentIndex}
           />
           
           {selectedTimeSlot && (
@@ -288,6 +335,11 @@ const BookingForm: React.FC<BookingFormProps> = ({
                 <p className="text-blue-700">
                   {formatDate(selectedTimeSlot.date)} at {formatTime(selectedTimeSlot.startTime)} - {formatTime(selectedTimeSlot.endTime)}
                 </p>
+                {selectedSegment && (
+                  <p className="text-blue-700 mt-1">
+                    <span className="font-medium">Selected Segment:</span> {formatTime(selectedSegment.start)} - {formatTime(selectedSegment.end)}
+                  </p>
+                )}
               </div>
               
               <Button
@@ -312,6 +364,11 @@ const BookingForm: React.FC<BookingFormProps> = ({
                   </>
                 )}
               </p>
+              {selectedSegment && (
+                <p className="text-blue-700 mt-1">
+                  <span className="font-medium">Selected Segment:</span> {formatTime(selectedSegment.start)} - {formatTime(selectedSegment.end)}
+                </p>
+              )}
               <button
                 onClick={handleBackToTimeSelection}
                 className="text-blue-600 hover:text-blue-800 text-sm mt-2"
@@ -373,25 +430,18 @@ const BookingForm: React.FC<BookingFormProps> = ({
                 </div>
               </div>
               
-              {/* Street */}
+              {/* Street - Google Places Autocomplete */}
               <div className="mb-3">
-                <label htmlFor="street" className="block text-sm font-medium mb-1">
-                  Street Address<span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
+                <GooglePlacesAutocomplete
+                  label="Street Address"
                   id="street"
                   name="street"
                   value={address.street}
-                  onChange={handleAddressChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-black ${
-                    formErrors.street ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="123 Main St"
+                  onPlaceSelect={handlePlaceSelect}
+                  placeholder="Start typing your address"
+                  error={formErrors.street}
+                  required
                 />
-                {formErrors.street && (
-                  <p className="mt-1 text-xs text-red-500">{formErrors.street}</p>
-                )}
               </div>
               
               {/* City, State, ZIP */}

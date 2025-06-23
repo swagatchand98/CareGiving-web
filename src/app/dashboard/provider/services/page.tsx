@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import useServices from '@/hooks/useServices';
-import AdminHeader from '@/components/layout/AdminHeader';
+import AdminHeader from '@/components/layout/ProviderHeader';
 import Footer from '@/components/layout/Footer';
 import ServiceForm from '@/components/services/ServiceForm';
 import ServiceCard from '@/components/services/ServiceCard';
@@ -312,7 +312,7 @@ export default function ProviderServicesPage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {services.map((service) => (
                 <div key={service._id} className="relative">
                   <ServiceCard service={service} />

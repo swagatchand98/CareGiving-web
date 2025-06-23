@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useTimeSlots } from '@/hooks/useTimeSlots';
 import { useServices } from '@/hooks/useServices';
 import { GroupedTimeSlots, TimeSlot, TimeSlotCreateData } from '@/services/timeSlotService';
-import { Service } from '@/services/serviceService';
+import { Service, getServiceById } from '@/services/serviceService';
 import Button from '@/components/common/Button';
 
 interface TimeSlotManagerProps {
@@ -26,12 +26,14 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
   const [groupedTimeSlots, setGroupedTimeSlots] = useState<GroupedTimeSlots>({});
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState<string>('09:00');
   const [endTime, setEndTime] = useState<string>('10:00');
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoadingService, setIsLoadingService] = useState<boolean>(false);
   
   // Use a ref to track if we've already tried to load services
   const servicesLoadAttempted = React.useRef(false);
@@ -82,7 +84,23 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
           
           // Set selected service to the first service if available
           if (response.services.length > 0) {
-            setSelectedServiceId(response.services[0]._id);
+            const firstServiceId = response.services[0]._id;
+            setSelectedServiceId(firstServiceId);
+            
+            // Also load the first service details
+            try {
+              setIsLoadingService(true);
+              const serviceResponse = await getServiceById(firstServiceId);
+              if (isMounted) {
+                setSelectedService(serviceResponse.service);
+              }
+            } catch (err) {
+              console.error('Error loading service details:', err);
+            } finally {
+              if (isMounted) {
+                setIsLoadingService(false);
+              }
+            }
           }
         }
       } catch (err: any) {
@@ -145,10 +163,10 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
       
       console.log('Loading time slots for service:', selectedServiceId);
       
-      // Get time slots for the next 30 days
+      // Get time slots for the next 60 days
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30);
+      endDate.setDate(endDate.getDate() + 60);
       
       // Add a small delay to ensure authentication is fully established
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -194,8 +212,21 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
   };
   
   // Handle service selection
-  const handleServiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedServiceId(e.target.value);
+  const handleServiceChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newServiceId = e.target.value;
+    setSelectedServiceId(newServiceId);
+    
+    // Fetch the selected service details to get its duration
+    try {
+      setIsLoadingService(true);
+      const response = await getServiceById(newServiceId);
+      setSelectedService(response.service);
+      setIsLoadingService(false);
+    } catch (err: any) {
+      console.error('Error fetching service details:', err);
+      setErrorMessage('Failed to load service details');
+      setIsLoadingService(false);
+    }
   };
   
   // Handle date selection
@@ -207,12 +238,27 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
   const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setStartTime(e.target.value);
     
-    // Automatically set end time to 1 hour after start time
-    const [hours, minutes] = e.target.value.split(':').map(Number);
-    const endHours = hours + 1;
-    const formattedEndHours = endHours.toString().padStart(2, '0');
-    const formattedMinutes = minutes.toString().padStart(2, '0');
-    setEndTime(`${formattedEndHours}:${formattedMinutes}`);
+    // Automatically set end time based on service duration
+    if (selectedService) {
+      const [hours, minutes] = e.target.value.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes;
+      
+      // Add service duration to get end time
+      const endTotalMinutes = totalMinutes + selectedService.duration;
+      const endHours = Math.floor(endTotalMinutes / 60);
+      const endMinutes = endTotalMinutes % 60;
+      
+      const formattedEndHours = endHours.toString().padStart(2, '0');
+      const formattedMinutes = endMinutes.toString().padStart(2, '0');
+      setEndTime(`${formattedEndHours}:${formattedMinutes}`);
+    } else {
+      // Default to 1 hour if service details not available
+      const [hours, minutes] = e.target.value.split(':').map(Number);
+      const endHours = hours + 1;
+      const formattedEndHours = endHours.toString().padStart(2, '0');
+      const formattedMinutes = minutes.toString().padStart(2, '0');
+      setEndTime(`${formattedEndHours}:${formattedMinutes}`);
+    }
   };
   
   // Handle end time selection
@@ -224,6 +270,11 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
   const handleCreateTimeSlot = async () => {
     if (!selectedServiceId) {
       setErrorMessage('Please select a service');
+      return;
+    }
+    
+    if (!selectedService) {
+      setErrorMessage('Service details not loaded');
       return;
     }
     
@@ -245,6 +296,15 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
     
     if (endTotalMinutes <= startTotalMinutes) {
       setErrorMessage('End time must be after start time');
+      return;
+    }
+    
+    // Calculate time slot duration in minutes
+    const slotDuration = endTotalMinutes - startTotalMinutes;
+    
+    // Check if time slot is long enough for the service
+    if (slotDuration < selectedService.duration) {
+      setErrorMessage(`Time slot must be at least ${selectedService.duration} minutes long for this service`);
       return;
     }
     
@@ -475,35 +535,89 @@ const TimeSlotManager: React.FC<TimeSlotManagerProps> = ({ providerId }) => {
                   <h4 className="font-medium mb-2">{formatDate(dateStr)}</h4>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {groupedTimeSlots[dateStr].map((timeSlot) => (
-                      <div 
-                        key={timeSlot._id} 
-                        className={`
-                          p-3 border rounded-md flex justify-between items-center
-                          ${timeSlot.isBooked ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'}
-                        `}
-                      >
-                        <div>
-                          <div className="font-medium">
-                            {formatTime(timeSlot.startTime)} - {formatTime(timeSlot.endTime)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {timeSlot.isBooked ? 'Booked' : 'Available'}
-                          </div>
-                        </div>
+                    {groupedTimeSlots[dateStr].map((timeSlot) => {
+                      // Calculate time slot segments based on service duration
+                      const segments = [];
+                      if (selectedService) {
+                        const [startHours, startMinutes] = timeSlot.startTime.split(':').map(Number);
+                        const [endHours, endMinutes] = timeSlot.endTime.split(':').map(Number);
+                        const startTotalMinutes = startHours * 60 + startMinutes;
+                        const endTotalMinutes = endHours * 60 + endMinutes;
+                        const slotDuration = endTotalMinutes - startTotalMinutes;
                         
-                        {!timeSlot.isBooked && (
-                          <button
-                            onClick={() => handleDeleteTimeSlot(timeSlot._id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                        // Calculate number of segments based on service duration
+                        const numSegments = Math.floor(slotDuration / selectedService.duration);
+                        
+                        for (let i = 0; i < numSegments; i++) {
+                          const segmentStartMinutes = startTotalMinutes + (i * selectedService.duration);
+                          const segmentEndMinutes = segmentStartMinutes + selectedService.duration;
+                          
+                          const segmentStartHours = Math.floor(segmentStartMinutes / 60);
+                          const segmentStartMins = segmentStartMinutes % 60;
+                          const segmentEndHours = Math.floor(segmentEndMinutes / 60);
+                          const segmentEndMins = segmentEndMinutes % 60;
+                          
+                          const formattedSegmentStart = `${segmentStartHours.toString().padStart(2, '0')}:${segmentStartMins.toString().padStart(2, '0')}`;
+                          const formattedSegmentEnd = `${segmentEndHours.toString().padStart(2, '0')}:${segmentEndMins.toString().padStart(2, '0')}`;
+                          
+                          segments.push({
+                            start: formattedSegmentStart,
+                            end: formattedSegmentEnd,
+                            // For now, we'll consider the segment booked if the whole slot is booked
+                            // In a real implementation, you'd track booking status per segment
+                            isBooked: timeSlot.isBooked
+                          });
+                        }
+                      }
+                      
+                      return (
+                        <div 
+                          key={timeSlot._id} 
+                          className="p-3 border rounded-md border-gray-200"
+                        >
+                          <div className="flex justify-between items-center mb-2">
+                            <div className="font-medium">
+                              {formatTime(timeSlot.startTime)} - {formatTime(timeSlot.endTime)}
+                            </div>
+                            
+                            {!timeSlot.isBooked && (
+                              <button
+                                onClick={() => handleDeleteTimeSlot(timeSlot._id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                          
+                          {/* Show segments */}
+                          {segments.length > 0 && (
+                            <div className="mt-2 border-t pt-2">
+                              <p className="text-xs text-gray-500 mb-1">Segments ({selectedService?.duration} min each):</p>
+                              <div className="grid grid-cols-1 gap-1">
+                                {segments.map((segment, index) => (
+                                  <div 
+                                    key={index}
+                                    className={`text-xs px-2 py-1 rounded-md ${
+                                      segment.isBooked 
+                                        ? 'bg-red-50 text-red-700' 
+                                        : 'bg-green-50 text-green-700'
+                                    }`}
+                                  >
+                                    {formatTime(segment.start)} - {formatTime(segment.end)}
+                                    <span className="ml-1 font-medium">
+                                      {segment.isBooked ? '(Booked)' : '(Available)'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

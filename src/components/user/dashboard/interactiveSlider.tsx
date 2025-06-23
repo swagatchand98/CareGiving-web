@@ -5,6 +5,8 @@ interface Slide {
   id: number;
   color: string;
   title: string;
+  activeImage: string;
+  inactiveImage: string;
   position?: number;
 }
 
@@ -13,16 +15,55 @@ const InteractiveSlider = () => {
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   const slides: Slide[] = [
-    { id: 0, color: 'bg-sky-300', title: 'Slide 1' },
-    { id: 1, color: 'bg-red-400', title: 'Slide 2' },
-    { id: 2, color: 'bg-green-400', title: 'Slide 3' },
-    { id: 3, color: 'bg-purple-400', title: 'Slide 4' },
-    { id: 4, color: 'bg-yellow-400', title: 'Slide 5' },
-    { id: 5, color: 'bg-pink-400', title: 'Slide 6' },
-    { id: 6, color: 'bg-indigo-400', title: 'Slide 7' },
-    { id: 7, color: 'bg-orange-400', title: 'Slide 8' },
-    { id: 8, color: 'bg-teal-400', title: 'Slide 9' },
-    { id: 9, color: 'bg-cyan-400', title: 'Slide 10' }
+    { 
+      id: 0, 
+      color: 'bg-sky-300', 
+      title: 'Elder Care', 
+      activeImage: '/images/slide1.png',
+      inactiveImage: '/images/slide1_inactive.png'
+    },
+    { 
+      id: 1, 
+      color: 'bg-red-400', 
+      title: 'Child Care', 
+      activeImage: '/images/slide2.png',
+      inactiveImage: '/images/slide2_inactive.png'
+    },
+    { 
+      id: 2, 
+      color: 'bg-green-400', 
+      title: 'Special Needs', 
+      activeImage: '/images/slide3.png',
+      inactiveImage: '/images/slide3_inactive.png'
+    },
+    { 
+      id: 3, 
+      color: 'bg-purple-400', 
+      title: 'Home Healthcare', 
+      activeImage: '/images/slide4.png',
+      inactiveImage: '/images/slide4_inactive.png'
+    },
+    { 
+      id: 4, 
+      color: 'bg-yellow-400', 
+      title: 'Respite Care', 
+      activeImage: '/images/slide5.png',
+      inactiveImage: '/images/slide5_inactive.png'
+    },
+    { 
+      id: 5, 
+      color: 'bg-pink-400', 
+      title: 'Overnight Care', 
+      activeImage: '/images/slide6.png',
+      inactiveImage: '/images/slide6_inactive.png'
+    },
+    { 
+      id: 6, 
+      color: 'bg-indigo-400', 
+      title: 'Companion Care', 
+      activeImage: '/images/slide7.png',
+      inactiveImage: '/images/slide7_inactive.png'
+    }
   ];
 
   // Auto-play functionality
@@ -58,10 +99,10 @@ const InteractiveSlider = () => {
     setActiveSlide(prev => prev === 0 ? slides.length - 1 : prev - 1);
   };
 
-  // Create visible slides array (active slide + next 4 slides)
+  // Create visible slides array (active slide + next 2 slides)
   const getVisibleSlides = (): (Slide & { position: number })[] => {
     const visibleSlides = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       const slideIndex = (activeSlide + i) % slides.length;
       visibleSlides.push({
         ...slides[slideIndex],
@@ -73,8 +114,8 @@ const InteractiveSlider = () => {
 
 const slideVariants = {
     active: (custom?: number) => ({
-        width: "900px",
-        height: "480px",
+        width: "min(820px, 45vw)",
+        height: "min(480px, 50vh)",
         filter: 'brightness(1)',
         zIndex: 10,
         transition: {
@@ -85,9 +126,9 @@ const slideVariants = {
         }
     }),
     inactive: (custom?: number) => ({
-        width: "300px",
-        height: "480px",
-        filter: 'brightness(0.8)',
+        width: "min(325px, 25vw)",
+        height: "min(480px, 50vh)",
+        filter: 'brightness(0.7)',
         zIndex: 5,
         transition: {
             type: 'spring',
@@ -161,10 +202,10 @@ const slideVariants = {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center overflow-hidden w-[1746px] ml-10 mt-10">
-      <div className="flex items-center gap-4 mb-8 pl-50">
+    <div className="flex flex-col items-center justify-center overflow-hidden w-full max-w-[1746px] px-4 md:px-8 lg:px-10 mt-10 mx-auto">
+      <div className="flex items-center justify-center gap-4 mb-8 w-full overflow-x-auto">
         <motion.div 
-          className="flex items-center gap-3 ml-160"
+          className="flex items-center justify-center gap-3 mx-auto"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -174,7 +215,6 @@ const slideVariants = {
               <motion.div
                 key={`${slide.id}-${slide.position}`}
                 className={`
-                  ${slide.color} 
                   rounded-3xl 
                   cursor-pointer 
                   shadow-lg
@@ -185,6 +225,7 @@ const slideVariants = {
                   flex items-center justify-center
                   flex-shrink-0
                   relative
+                  overflow-hidden
                 `}
                 variants={slideVariants}
                 initial="inactive"
@@ -211,12 +252,12 @@ const slideVariants = {
                 }}
                 custom={slide.position}
               >
-                <div className="text-white text-center px-2">
-                  <motion.h3 
-                    className="font-bold mb-2"
-                  >
-                    {slide.title}
-                  </motion.h3>
+                <img 
+                  src={slide.position === 0 ? slide.activeImage : slide.inactiveImage}
+                  alt={slide.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="text-gray-600 hover:text-gray-800 bg-transparent p-2 px-2 z-10 absolute top-5 right-5 rounded-xl backdrop-blur-2xl shadow-2xl">
                   <AnimatePresence>
                     {slide.position === 0 && (
                       <motion.p 
@@ -226,7 +267,7 @@ const slideVariants = {
                         animate="visible"
                         exit="hidden"
                       >
-                        Active content
+                        Book Now
                       </motion.p>
                     )}
                   </AnimatePresence>
@@ -238,7 +279,7 @@ const slideVariants = {
       </div>
 
       {/* Navigation dots */}
-      <div className="flex gap-2 flex-wrap justify-center max-w-md ml-25">
+      <div className="flex gap-2 flex-wrap justify-center max-w-md mx-auto">
         {slides.map((slide) => (
           <motion.button
             key={slide.id}
@@ -255,7 +296,7 @@ const slideVariants = {
       </div>
 
       {/* Progress bar */}
-      <div className="mt-4 w-64 h-1 bg-gray-300 rounded-full overflow-hidden ml-25">
+      <div className="mt-4 w-64 h-1 bg-gray-300 rounded-full overflow-hidden mx-auto">
         <motion.div
           className="h-full bg-blue-500"
           initial={{ width: '0%' }}

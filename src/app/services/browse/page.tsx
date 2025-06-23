@@ -98,11 +98,6 @@ export default function BrowseServicesPage() {
           </div>
         ) : (
           <>
-            {/* Categories */}
-            <CategoryList 
-              onCategorySelect={handleCategorySelect}
-              selectedCategoryId={categoryId}
-            />
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {/* Sidebar with Search and Filters */}

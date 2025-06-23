@@ -6,6 +6,8 @@ import { CreateAddressData } from '@/services/addressService';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import Input from '../common/Input';
 import Button from '../common/Button';
+import GooglePlacesAutocomplete from './GooglePlacesAutocomplete';
+import { parseGooglePlaceToAddress } from '@/utils/addressUtils';
 
 interface AddressFormProps {
   onClose: () => void;
@@ -83,6 +85,25 @@ const AddressForm: React.FC<AddressFormProps> = ({
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
+
+  // Handle Google Places selection
+  const handlePlaceSelect = (place: google.maps.places.PlaceResult) => {
+    const addressData = parseGooglePlaceToAddress(place, formData);
+    setFormData(prev => ({
+      ...prev,
+      ...addressData
+    }));
+    
+    // Clear related errors
+    setErrors(prev => ({
+      ...prev,
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: ''
+    }));
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,13 +179,13 @@ const AddressForm: React.FC<AddressFormProps> = ({
             required
           />
           
-          {/* Street Address */}
-          <Input
+          {/* Google Places Autocomplete */}
+          <GooglePlacesAutocomplete
             label="Street Address"
             name="street"
             value={formData.street}
-            onChange={handleChange}
-            placeholder="Street address, house number, apartment"
+            onPlaceSelect={handlePlaceSelect}
+            placeholder="Start typing your address"
             error={errors.street}
             required
           />

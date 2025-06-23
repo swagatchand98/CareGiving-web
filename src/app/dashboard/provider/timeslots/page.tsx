@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import AdminHeader from '@/components/layout/AdminHeader';
+import AdminHeader from '@/components/layout/ProviderHeader';
 import Footer from '@/components/layout/Footer';
 import TimeSlotManager from '@/components/timeslots/TimeSlotManager';
 
